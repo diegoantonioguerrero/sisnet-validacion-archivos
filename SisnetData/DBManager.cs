@@ -200,6 +200,24 @@ namespace SisnetData
             }
             return dictionary;
         }
+        private bool log;
+
+        private string GetCurrentDirectory() => AppDomain.CurrentDomain.BaseDirectory;
+
+        private void WriteLog(string text, Exception ex = null)
+        {
+            string str = this.GetCurrentDirectory() + "log.txt";
+            string path1 = str;
+            DateTime now = DateTime.Now;
+            string contents1 = now.ToString("yyyy-MM-dd HH:mm:ss") + " " + text + "\r\n";
+            File.AppendAllText(path1, contents1);
+            if (ex == null)
+                return;
+            string path2 = str;
+            now = DateTime.Now;
+            string contents2 = now.ToString("yyyy-MM-dd HH:mm:ss") + " " + ex.StackTrace + "\r\n";
+            File.AppendAllText(path2, contents2);
+        }
 
         public List<ProcessInfo> GetPendingFiles(string tableName)
         {
@@ -212,11 +230,11 @@ namespace SisnetData
                 fecha = DateTime.Now,
                 tipo = "",
                 numeroidentificacion = null,
-                nombrearchivoarchivo = "ABC.PDF.TXT",
+                nombrearchivoarchivo = "._AURAMILENAVELANDIA",
                 etiqueta = null,
                 accion = null,
                 calidadpdf = 0M,
-                estado = "",
+                estado = "PE",
                 etiqueta1 = null,
                 etiqueta2 = null,
                 etiqueta3 = null,
@@ -253,6 +271,15 @@ namespace SisnetData
                         };
                         list.Add(item);
                     }
+                }
+
+                if (list.Count == 0)
+                {
+                    this.WriteLog("No hay archivos con estado PE");
+                }
+                else
+                {
+                    this.WriteLog("Se procesan " + list.Count + " archivos con estado PE");
                 }
             }
             catch (Exception exception)

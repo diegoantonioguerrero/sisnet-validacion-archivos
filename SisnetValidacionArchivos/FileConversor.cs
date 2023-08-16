@@ -100,6 +100,13 @@ namespace SisnetServiceConversor
             try
             {
                 this.globalData = DBManager.GetDBManager().GetPendingFiles(this.tableToValidate.ToString());
+                if (this.globalData.Count == 0)
+                {
+                    this.WriteLog("No hay archivos con estado PE");
+                }
+                else {
+                    this.WriteLog("Se procesan " + this.globalData.Count + " archivos con estado PE");
+                }
                 this.ExportData();
             }
             catch (Exception ex)

@@ -1,0 +1,8 @@
+﻿################################################################################
+# Este archivo .gitignore ha sido creado automáticamente por Microsoft(R) Visual Studio.
+################################################################################
+
+SisnetData/bin/
+SisnetData/obj/
+SisnetValidacionArchivos/bin/
+SisnetValidacionArchivos/obj/
