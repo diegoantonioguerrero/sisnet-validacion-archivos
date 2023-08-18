@@ -16,16 +16,27 @@ namespace SisnetData
         // Methods
         public override string ToString()
         {
-            string[] textArray1 = new string[] { this.fldidvalidacionarchivos.ToString(), "[", this.nombrearchivoarchivo, "] -> [", this.nombrearchivoarchivoresultante, "]" };
-            return string.Concat(textArray1);
+            return string.Concat(new string[] { this.fldidvalidacionarchivos.ToString(), "[", this.nombrearchivoarchivo, "] -> [", this.nombrearchivoarchivoresultante, "]" });
         }
 
         // Properties
         public string procesarexcel { get; set; }
 
-        public bool ProcesarExcel =>
-            !string.IsNullOrEmpty(this.procesarexcel) ? ((this.nombrearchivoarchivo.ToLower().EndsWith("xlsx") || this.nombrearchivoarchivo.ToLower().EndsWith("xls")) ? this.procesarexcel.Equals("si") : true) : true;
-
+        public bool ProcesarExcel
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(this.procesarexcel))
+                {
+                    return true;
+                }
+                if (!this.nombrearchivoarchivo.ToLower().EndsWith("xlsx") && !this.nombrearchivoarchivo.ToLower().EndsWith("xls"))
+                {
+                    return true;
+                }
+                return this.procesarexcel.Equals("si");
+            }
+        }
         public int fldidvalidacionarchivos { get; set; }
 
         public DateTime fecha { get; set; }
@@ -53,6 +64,8 @@ namespace SisnetData
         public string extensionarchivoresultant { get; set; }
 
         public string extensionarchivo { get; set; }
+
+
     }
 
 

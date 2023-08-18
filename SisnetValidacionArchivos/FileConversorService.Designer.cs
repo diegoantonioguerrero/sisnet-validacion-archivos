@@ -1,5 +1,5 @@
 ﻿
-namespace SisnetValidacionArchivos
+namespace SisnetServiceConversor
 {
     partial class FileConversorService
     {

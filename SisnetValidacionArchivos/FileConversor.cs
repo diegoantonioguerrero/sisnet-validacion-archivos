@@ -1,16 +1,12 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: SisnetServiceConversor.FileConversor
-// Assembly: SisnetValidacionArchivos, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
-// MVID: 1C982BFB-D950-4E36-96EC-B870E1BEF3A5
-// Assembly location: C:\tempStore\sisnetdataexe\SisnetValidacionArchivos.exe
-
-using SisnetData;
+﻿using SisnetData;
 using System;
 using System.Collections.Generic;
+//using System.Collections.Specialized;
 using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+//using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -26,7 +22,7 @@ namespace SisnetServiceConversor
         private string PdfExe;
         private string PdfCompresorExe;
         private int secondsToPressContinue2PDF;
-        private List<SisnetData.ProcessInfo> globalData;
+        private List<ProcessInfo> globalData;
         private string WorkingPath;
         private string cmdConvertPDF;
         private string cmdCompresorPDF;
@@ -35,7 +31,6 @@ namespace SisnetServiceConversor
         private string cmdTextWaterMark3;
         private string cmdTextWaterMark4;
         private string pdfexeclauncher;
-        private string extensiones;
         private bool log;
         public bool StopSignal;
         private IntPtr ServiceHandle;
@@ -43,24 +38,23 @@ namespace SisnetServiceConversor
 #if DEBUG
         bool testLocal;
 #endif
-        [DllImport("user32.dll", SetLastError = true)]
+        [DllImport("user32.dll", CharSet = CharSet.None, ExactSpelling = false, SetLastError = true)]
         public static extern IntPtr SetParent(IntPtr hWndChild, IntPtr hWndNewParent);
 
-        [DllImport("user32.dll")]
+        [DllImport("user32.dll", CharSet = CharSet.None, ExactSpelling = false)]
         public static extern bool SetForegroundWindow(IntPtr hWnd);
 
         public FileConversor(IntPtr ServiceHandle)
         {
             this.ServiceHandle = ServiceHandle;
-            DBManager dbManager = DBManager.GetDBManager();
-
+            DBManager dBManager = DBManager.GetDBManager();
             try
             {
                 string appSetting1 = ConfigurationManager.AppSettings["server"];
                 string appSetting2 = ConfigurationManager.AppSettings["database"];
                 string appSetting3 = ConfigurationManager.AppSettings["user"];
                 string appSetting4 = ConfigurationManager.AppSettings["password"];
-                dbManager.SetDBManager(appSetting1, appSetting2, appSetting3, appSetting4);
+                dBManager.SetDBManager(appSetting1, appSetting2, appSetting3, appSetting4);
             }
             catch (Exception ex)
             {
@@ -73,40 +67,31 @@ namespace SisnetServiceConversor
                 this.WriteLog(ex.Message);
                 throw ex;
 #endif
-
-
             }
             this.WorkingPath = this.GetCurrentDirectory() + "temp";
-            this.tableToValidate = ConfigurationManager.AppSettings[nameof(tableToValidate)];
+            this.tableToValidate = ConfigurationManager.AppSettings["tableToValidate"];
             this.PdfExe = ConfigurationManager.AppSettings["2pdfexe"];
             this.PdfCompresorExe = ConfigurationManager.AppSettings["pdfcompresorexe"];
             this.imgLogo = ConfigurationManager.AppSettings["logoWaterMark"];
             this.imgLogo = this.GetCurrentDirectory() + this.imgLogo;
-            this.cmdConvertPDF = ConfigurationManager.AppSettings[nameof(cmdConvertPDF)];
-            this.cmdCompresorPDF = ConfigurationManager.AppSettings[nameof(cmdCompresorPDF)];
-            this.cmdWaterMark = ConfigurationManager.AppSettings[nameof(cmdWaterMark)];
-            this.cmdTextWaterMark1 = ConfigurationManager.AppSettings[nameof(cmdTextWaterMark1)];
-            this.cmdTextWaterMark2 = ConfigurationManager.AppSettings[nameof(cmdTextWaterMark2)];
-            this.cmdTextWaterMark3 = ConfigurationManager.AppSettings[nameof(cmdTextWaterMark3)];
-            this.cmdTextWaterMark4 = ConfigurationManager.AppSettings[nameof(cmdTextWaterMark4)];
+            this.cmdConvertPDF = ConfigurationManager.AppSettings["cmdConvertPDF"];
+            this.cmdCompresorPDF = ConfigurationManager.AppSettings["cmdCompresorPDF"];
+            this.cmdWaterMark = ConfigurationManager.AppSettings["cmdWaterMark"];
+            this.cmdTextWaterMark1 = ConfigurationManager.AppSettings["cmdTextWaterMark1"];
+            this.cmdTextWaterMark2 = ConfigurationManager.AppSettings["cmdTextWaterMark2"];
+            this.cmdTextWaterMark3 = ConfigurationManager.AppSettings["cmdTextWaterMark3"];
+            this.cmdTextWaterMark4 = ConfigurationManager.AppSettings["cmdTextWaterMark4"];
             this.pdfexeclauncher = ConfigurationManager.AppSettings["2pdfexeclauncher"];
-            this.secondsToPressContinue2PDF = int.Parse(ConfigurationManager.AppSettings[nameof(secondsToPressContinue2PDF)]);
+            this.secondsToPressContinue2PDF = int.Parse(ConfigurationManager.AppSettings["secondsToPressContinue2PDF"]);
             this.log = bool.Parse(ConfigurationManager.AppSettings["log"]);
-            this.extensiones = ConfigurationManager.AppSettings["extensiones"];
         }
 
         public void ChangeData()
         {
             try
             {
-                this.globalData = DBManager.GetDBManager().GetPendingFiles(this.tableToValidate.ToString());
-                if (this.globalData.Count == 0)
-                {
-                    this.WriteLog("No hay archivos con estado PE");
-                }
-                else {
-                    this.WriteLog("Se procesan " + this.globalData.Count + " archivos con estado PE");
-                }
+                DBManager dBManager = DBManager.GetDBManager();
+                this.globalData = dBManager.GetPendingFiles(this.tableToValidate.ToString());
                 this.ExportData();
             }
             catch (Exception ex)
@@ -117,714 +102,832 @@ namespace SisnetServiceConversor
 
         private void ExportData()
         {
+            TimeSpan elapsed;
+            FileInfo fileInfo;
+            string str;
             if (this.globalData.Count == 0)
+            {
                 return;
+            }
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
-            DBManager dbManager = DBManager.GetDBManager();
-            List<string> stringList = new List<string>();
-            List<string> list1 = this.globalData.Select<SisnetData.ProcessInfo, string>((Func<SisnetData.ProcessInfo, string>)(drv => "'" + drv.fldidvalidacionarchivos.ToString() + "'")).ToList<string>();
+            DBManager dBManager = DBManager.GetDBManager();
+            List<string> strs = new List<string>();
+            List<string> list = (
+                from drv in this.globalData
+                select string.Concat("'", drv.fldidvalidacionarchivos.ToString(), "'")).ToList<string>();
             DirectoryInfo directoryInfo = new DirectoryInfo(this.WorkingPath);
             if (!directoryInfo.Exists)
             {
                 this.WriteLog("Creating directory " + this.WorkingPath);
                 directoryInfo.Create();
             }
-            int num1 = 0;
-            while (list1.Any<string>())
+            int num = 0;
+            while (true)
             {
-                this.ClearFolder();
-                List<string> list2 = list1.Take<string>(50).ToList<string>();
-                string fldidvalidacionarchivos = string.Join(",", (IEnumerable<string>)list2);
-                foreach (SisnetData.ProcessInfo processInfo1 in dbManager.GetDataFileToConvert(this.tableToValidate.ToString(), fldidvalidacionarchivos))
+                if (list.Any<string>())
                 {
-                    SisnetData.ProcessInfo itemExportFile = processInfo1;
-                    if (this.StopSignal)
-                        return;
-                    SisnetData.ProcessInfo processInfo2 = this.globalData.Where<SisnetData.ProcessInfo>((Func<SisnetData.ProcessInfo, bool>)(toProcess => toProcess.fldidvalidacionarchivos == itemExportFile.fldidvalidacionarchivos)).Single<SisnetData.ProcessInfo>();
-                    processInfo2.ArchivoData = itemExportFile.ArchivoData;
-                    this.WriteLog("Processing " + processInfo2.fldidvalidacionarchivos.ToString() + " action:" + processInfo2.accion);
-                    if (!this.IsValidExtension(processInfo2))
+                    this.ClearFolder();
+                    List<string> list1 = list.Take<string>(50).ToList<string>();
+                    string str1 = string.Join(",", list1);
+                    foreach (ProcessInfo dataFileToConvert in dBManager.GetDataFileToConvert(this.tableToValidate.ToString(), str1))
                     {
-                        continue;
-                    }
-                    if (string.IsNullOrEmpty(processInfo2.accion))
-                    {
-                        this.CorregirNombre(processInfo2);
-                        processInfo2.estado = "OK";
-                        processInfo2.archivoresultante = processInfo2.ArchivoData;
-                        dbManager.UpdateValidacionarchivos(processInfo2);
-                        processInfo2.ArchivoData = (byte[])null;
-                        processInfo2.archivoresultante = (byte[])null;
-                    }
-                    else
-                    {
-                        if (processInfo2.accion == "A" && processInfo2.ArchivoData != null && processInfo2.ArchivoData.Length != 0)
+                        if (!this.StopSignal)
                         {
-                            this.CorregirNombre(processInfo2);
-                            FileInfo fileInfo = new FileInfo(processInfo2.nombrearchivoarchivoresultante);
-                            this.CrearArchivoBase(processInfo2);
-                            string fullpath = this.WorkingPath + "\\" + fileInfo.Name;
-                            int errorCode = 0;
-                            if (!processInfo2.nombrearchivoarchivo.EndsWith(".pdf") && processInfo2.ProcesarExcel)
-                                errorCode = this.ConvertToPDF(fullpath, processInfo2, (string)null);
-                            if (errorCode == 0)
+                            ProcessInfo archivoData = (
+                                from toProcess in this.globalData
+                                where toProcess.fldidvalidacionarchivos == dataFileToConvert.fldidvalidacionarchivos
+                                select toProcess).Single<ProcessInfo>();
+                            archivoData.ArchivoData = dataFileToConvert.ArchivoData;
+                            int num1 = archivoData.fldidvalidacionarchivos;
+                            this.WriteLog(string.Concat("Processing ", num1.ToString(), " action:", archivoData.accion), null);
+                            if (!this.IsValidExtension(archivoData))
                             {
-                                processInfo2.archivoresultante = this.GetFileData(processInfo2);
-                                processInfo2.estado = "OK";
-                                dbManager.UpdateValidacionarchivos(processInfo2);
-                            }
-                            else
-                                this.ReportError(processInfo2, errorCode);
-                            processInfo2.ArchivoData = (byte[])null;
-                            processInfo2.archivoresultante = (byte[])null;
-                        }
-                        else if (processInfo2.accion == "A" && (processInfo2.ArchivoData == null || processInfo2.ArchivoData.Length == 0))
-                        {
-                            processInfo2.estado = "ER";
-                            processInfo2.mensajeerror = "NO SE PUEDE CONVERTIR A PDF";
-                            dbManager.UpdateValidacionarchivos(processInfo2);
-                        }
-                        if (processInfo2.accion == "B" && processInfo2.ArchivoData != null && processInfo2.ArchivoData.Length != 0)
-                        {
-                            this.CorregirNombre(processInfo2);
-                            if (!processInfo2.nombrearchivoarchivo.EndsWith(".pdf"))
-                            {
-                                processInfo2.archivoresultante = processInfo2.ArchivoData;
-                                processInfo2.estado = "ER";
-                                processInfo2.mensajeerror = "ARCHIVO DEBE SER PDF";
-                                dbManager.UpdateValidacionarchivos(processInfo2);
-                                processInfo2.archivoresultante = (byte[])null;
-                                processInfo2.ArchivoData = (byte[])null;
                                 continue;
                             }
-                            FileInfo fileInfo = new FileInfo(processInfo2.nombrearchivoarchivoresultante);
-                            this.CrearArchivoBase(processInfo2);
-                            string str = this.WorkingPath + "\\" + fileInfo.Name;
-                            int pdf = this.ConvertToPDF(str, processInfo2, "waterMark");
-                            if (pdf != 0)
+                            if (!string.IsNullOrEmpty(archivoData.accion))
                             {
-                                this.ReportError(processInfo2, pdf);
-                                continue;
-                            }
-                            if (this.AddTextMark(processInfo2, str) == 0)
-                            {
-                                processInfo2.archivoresultante = this.GetFileData(processInfo2);
-                                processInfo2.estado = "OK";
-                                dbManager.UpdateValidacionarchivos(processInfo2);
-                            }
-                            processInfo2.ArchivoData = (byte[])null;
-                            processInfo2.archivoresultante = (byte[])null;
-                        }
-                        else if (processInfo2.accion == "B" && (processInfo2.ArchivoData == null || processInfo2.ArchivoData.Length == 0))
-                        {
-                            processInfo2.estado = "ER";
-                            processInfo2.mensajeerror = "ARCHIVO DEBE SER PDF";
-                            dbManager.UpdateValidacionarchivos(processInfo2);
-                        }
-                        if (processInfo2.accion == "C" && processInfo2.ArchivoData != null && processInfo2.ArchivoData.Length != 0)
-                        {
-                            this.CorregirNombre(processInfo2);
-                            if (!processInfo2.nombrearchivoarchivo.EndsWith(".pdf"))
-                            {
-                                processInfo2.archivoresultante = processInfo2.ArchivoData;
-                                processInfo2.estado = "ER";
-                                processInfo2.mensajeerror = "ARCHIVO DEBE SER PDF";
-                                dbManager.UpdateValidacionarchivos(processInfo2);
-                                processInfo2.archivoresultante = (byte[])null;
-                                processInfo2.ArchivoData = (byte[])null;
-                                continue;
-                            }
-                            FileInfo fileInfo = new FileInfo(processInfo2.nombrearchivoarchivoresultante);
-                            this.CrearArchivoBase(processInfo2);
-                            if (this.CompressFile(this.WorkingPath + "\\" + fileInfo.Name, processInfo2) == 0)
-                            {
-                                processInfo2.archivoresultante = this.GetFileData(processInfo2);
-                                processInfo2.estado = "OK";
-                                dbManager.UpdateValidacionarchivos(processInfo2);
-                            }
-                            processInfo2.ArchivoData = (byte[])null;
-                            processInfo2.archivoresultante = (byte[])null;
-                        }
-                        else if (processInfo2.accion == "C" && (processInfo2.ArchivoData == null || processInfo2.ArchivoData.Length == 0))
-                        {
-                            processInfo2.estado = "ER";
-                            processInfo2.mensajeerror = "ARCHIVO DEBE SER PDF";
-                            dbManager.UpdateValidacionarchivos(processInfo2);
-                        }
-                        if (processInfo2.accion == "AB" && processInfo2.ArchivoData != null && processInfo2.ArchivoData.Length != 0)
-                        {
-                            this.CorregirNombre(processInfo2);
-                            FileInfo fileInfo = new FileInfo(processInfo2.nombrearchivoarchivoresultante);
-                            this.CrearArchivoBase(processInfo2);
-                            stopwatch.Stop();
-                            TimeSpan elapsed = stopwatch.Elapsed;
-                            this.WriteLog(string.Format("Archivo base Time: {0}h {1}m {2}s {3}ms", (object)elapsed.Hours, (object)elapsed.Minutes, (object)elapsed.Seconds, (object)elapsed.Milliseconds));
-                            stopwatch.Restart();
-                            string str = this.WorkingPath + "\\" + fileInfo.Name;
-                            int errorCode = 0;
-                            if (!processInfo2.nombrearchivoarchivo.EndsWith(".pdf") && processInfo2.ProcesarExcel)
-                            {
-                                errorCode = this.ConvertToPDF(str, processInfo2, (string)null);
-                                elapsed = stopwatch.Elapsed;
-                                this.WriteLog(string.Format("ConvertToPDF Time: {0}h {1}m {2}s {3}ms", (object)elapsed.Hours, (object)elapsed.Minutes, (object)elapsed.Seconds, (object)elapsed.Milliseconds));
-                                stopwatch.Restart();
-                            }
-                            if (errorCode != 0)
-                            {
-                                this.ReportError(processInfo2, errorCode);
-                                continue;
-                            }
-                            int pdf = this.ConvertToPDF(str, processInfo2, "waterMark");
-                            elapsed = stopwatch.Elapsed;
-                            this.WriteLog(string.Format("marca de agua Time: {0}h {1}m {2}s {3}ms", (object)elapsed.Hours, (object)elapsed.Minutes, (object)elapsed.Seconds, (object)elapsed.Milliseconds));
-                            stopwatch.Restart();
-                            if (pdf != 0)
-                            {
-                                this.ReportError(processInfo2, pdf);
-                                continue;
-                            }
-                            int num2 = this.AddTextMark(processInfo2, str);
-                            elapsed = stopwatch.Elapsed;
-                            this.WriteLog(string.Format("AddTextMark Time: {0}h {1}m {2}s {3}ms", (object)elapsed.Hours, (object)elapsed.Minutes, (object)elapsed.Seconds, (object)elapsed.Milliseconds));
-                            stopwatch.Restart();
-                            if (num2 == 0)
-                            {
-                                processInfo2.archivoresultante = this.GetFileData(processInfo2);
-                                processInfo2.estado = "OK";
-                                dbManager.UpdateValidacionarchivos(processInfo2);
-                                elapsed = stopwatch.Elapsed;
-                                this.WriteLog(string.Format("Save DB Time: {0}h {1}m {2}s {3}ms", (object)elapsed.Hours, (object)elapsed.Minutes, (object)elapsed.Seconds, (object)elapsed.Milliseconds));
-                                stopwatch.Restart();
-                            }
-                            processInfo2.ArchivoData = (byte[])null;
-                            processInfo2.archivoresultante = (byte[])null;
-                        }
-                        else if (processInfo2.accion == "AB" && (processInfo2.ArchivoData == null || processInfo2.ArchivoData.Length == 0))
-                        {
-                            processInfo2.estado = "ER";
-                            processInfo2.mensajeerror = "NO SE PUEDE CONVERTIR A PDF";
-                            dbManager.UpdateValidacionarchivos(processInfo2);
-                        }
-                        if (processInfo2.accion == "AC" && processInfo2.ArchivoData != null && processInfo2.ArchivoData.Length != 0)
-                        {
-                            this.CorregirNombre(processInfo2);
-                            FileInfo fileInfo = new FileInfo(processInfo2.nombrearchivoarchivoresultante);
-                            this.CrearArchivoBase(processInfo2);
-                            string fullpath = this.WorkingPath + "\\" + fileInfo.Name;
-                            int errorCode = 0;
-                            if (!processInfo2.nombrearchivoarchivo.EndsWith(".pdf") && processInfo2.ProcesarExcel)
-                                errorCode = this.ConvertToPDF(fullpath, processInfo2, (string)null);
-                            if (errorCode != 0)
-                            {
-                                this.ReportError(processInfo2, errorCode);
-                                continue;
-                            }
-                            if (this.CompressFile(fullpath, processInfo2) == 0)
-                            {
-                                processInfo2.archivoresultante = this.GetFileData(processInfo2);
-                                processInfo2.estado = "OK";
-                                dbManager.UpdateValidacionarchivos(processInfo2);
-                            }
-                            processInfo2.ArchivoData = (byte[])null;
-                            processInfo2.archivoresultante = (byte[])null;
-                        }
-                        else if (processInfo2.accion == "AC" && (processInfo2.ArchivoData == null || processInfo2.ArchivoData.Length == 0))
-                        {
-                            processInfo2.estado = "ER";
-                            processInfo2.mensajeerror = "NO SE PUEDE CONVERTIR A PDF";
-                            dbManager.UpdateValidacionarchivos(processInfo2);
-                        }
-                        if (processInfo2.accion == "BC" && processInfo2.ArchivoData != null && processInfo2.ArchivoData.Length != 0)
-                        {
-                            this.CorregirNombre(processInfo2);
-                            if (!processInfo2.nombrearchivoarchivo.EndsWith(".pdf"))
-                            {
-                                processInfo2.archivoresultante = processInfo2.ArchivoData;
-                                processInfo2.estado = "ER";
-                                processInfo2.mensajeerror = "ARCHIVO DEBE SER PDF";
-                                dbManager.UpdateValidacionarchivos(processInfo2);
-                                processInfo2.archivoresultante = (byte[])null;
-                                processInfo2.ArchivoData = (byte[])null;
-                                continue;
-                            }
-                            FileInfo fileInfo = new FileInfo(processInfo2.nombrearchivoarchivoresultante);
-                            this.CrearArchivoBase(processInfo2);
-                            string str = this.WorkingPath + "\\" + fileInfo.Name;
-                            int pdf = this.ConvertToPDF(str, processInfo2, "waterMark");
-                            if (pdf != 0)
-                            {
-                                this.ReportError(processInfo2, pdf);
-                                continue;
-                            }
-                            if (this.AddTextMark(processInfo2, str) == 0)
-                            {
-                                if (this.CompressFile(str, processInfo2) == 0)
+                                if (archivoData.accion == "A" && archivoData.ArchivoData != null && archivoData.ArchivoData.Length != 0)
                                 {
-                                    processInfo2.archivoresultante = this.GetFileData(processInfo2);
-                                    processInfo2.estado = "OK";
-                                    dbManager.UpdateValidacionarchivos(processInfo2);
+                                    this.CorregirNombre(archivoData);
+                                    fileInfo = new FileInfo(archivoData.nombrearchivoarchivoresultante);
+                                    this.CrearArchivoBase(archivoData);
+                                    str = string.Concat(this.WorkingPath, "\\", fileInfo.Name);
+                                    int pDF = 0;
+                                    if (!archivoData.nombrearchivoarchivo.EndsWith(".pdf") && archivoData.ProcesarExcel)
+                                    {
+                                        pDF = this.ConvertToPDF(str, archivoData, null);
+                                    }
+                                    if (pDF != 0)
+                                    {
+                                        this.ReportError(archivoData, pDF);
+                                    }
+                                    else
+                                    {
+                                        archivoData.archivoresultante = this.GetFileData(archivoData);
+                                        archivoData.estado = "OK";
+                                        dBManager.UpdateValidacionarchivos(archivoData);
+                                    }
+                                    archivoData.ArchivoData = null;
+                                    archivoData.archivoresultante = null;
                                 }
-                                processInfo2.ArchivoData = (byte[])null;
-                                processInfo2.archivoresultante = (byte[])null;
-                            }
-                            else
-                                continue;
-                        }
-                        else if (processInfo2.accion == "BC" && (processInfo2.ArchivoData == null || processInfo2.ArchivoData.Length == 0))
-                        {
-                            processInfo2.estado = "ER";
-                            processInfo2.mensajeerror = "ARCHIVO DEBE SER PDF";
-                            dbManager.UpdateValidacionarchivos(processInfo2);
-                        }
-                        if (processInfo2.accion == "ABC" && processInfo2.ArchivoData != null && processInfo2.ArchivoData.Length != 0)
-                        {
-                            this.CorregirNombre(processInfo2);
-                            FileInfo fileInfo = new FileInfo(processInfo2.nombrearchivoarchivoresultante);
-                            this.CrearArchivoBase(processInfo2);
-                            string str = this.WorkingPath + "\\" + fileInfo.Name;
-                            int errorCode = 0;
-                            if (!processInfo2.nombrearchivoarchivo.EndsWith(".pdf") && processInfo2.ProcesarExcel)
-                                errorCode = this.ConvertToPDF(str, processInfo2, (string)null);
-                            if (errorCode != 0)
-                            {
-                                this.ReportError(processInfo2, errorCode);
-                                continue;
-                            }
-                            int pdf = this.ConvertToPDF(str, processInfo2, "waterMark");
-                            if (pdf != 0)
-                            {
-                                this.ReportError(processInfo2, pdf);
-                                continue;
-                            }
-                            if (this.AddTextMark(processInfo2, str) == 0)
-                            {
-                                if (this.CompressFile(str, processInfo2) == 0)
+                                else if (archivoData.accion == "A" && (archivoData.ArchivoData == null || archivoData.ArchivoData.Length == 0))
                                 {
-                                    processInfo2.archivoresultante = this.GetFileData(processInfo2);
-                                    processInfo2.estado = "OK";
-                                    dbManager.UpdateValidacionarchivos(processInfo2);
+                                    archivoData.estado = "ER";
+                                    archivoData.mensajeerror = "NO SE PUEDE CONVERTIR A PDF";
+                                    dBManager.UpdateValidacionarchivos(archivoData);
                                 }
-                                processInfo2.ArchivoData = (byte[])null;
-                                processInfo2.archivoresultante = (byte[])null;
+                                if (archivoData.accion == "B" && archivoData.ArchivoData != null && archivoData.ArchivoData.Length != 0)
+                                {
+                                    this.CorregirNombre(archivoData);
+                                    if (archivoData.nombrearchivoarchivo.EndsWith(".pdf"))
+                                    {
+                                        fileInfo = new FileInfo(archivoData.nombrearchivoarchivoresultante);
+                                        this.CrearArchivoBase(archivoData);
+                                        str = string.Concat(this.WorkingPath, "\\", fileInfo.Name);
+                                        int pDF1 = this.ConvertToPDF(str, archivoData, "waterMark");
+                                        if (pDF1 == 0)
+                                        {
+                                            pDF1 = this.AddTextMark(archivoData, str);
+                                            if (pDF1 == 0)
+                                            {
+                                                archivoData.archivoresultante = this.GetFileData(archivoData);
+                                                archivoData.estado = "OK";
+                                                dBManager.UpdateValidacionarchivos(archivoData);
+                                            }
+                                            archivoData.ArchivoData = null;
+                                            archivoData.archivoresultante = null;
+                                        }
+                                        else
+                                        {
+                                            this.ReportError(archivoData, pDF1);
+                                            continue;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        archivoData.archivoresultante = archivoData.ArchivoData;
+                                        archivoData.estado = "ER";
+                                        archivoData.mensajeerror = "ARCHIVO DEBE SER PDF";
+                                        dBManager.UpdateValidacionarchivos(archivoData);
+                                        archivoData.archivoresultante = null;
+                                        archivoData.ArchivoData = null;
+                                        continue;
+                                    }
+                                }
+                                else if (archivoData.accion == "B" && (archivoData.ArchivoData == null || archivoData.ArchivoData.Length == 0))
+                                {
+                                    archivoData.estado = "ER";
+                                    archivoData.mensajeerror = "ARCHIVO DEBE SER PDF";
+                                    dBManager.UpdateValidacionarchivos(archivoData);
+                                }
+                                if (archivoData.accion == "C" && archivoData.ArchivoData != null && archivoData.ArchivoData.Length != 0)
+                                {
+                                    this.CorregirNombre(archivoData);
+                                    if (archivoData.nombrearchivoarchivo.EndsWith(".pdf"))
+                                    {
+                                        fileInfo = new FileInfo(archivoData.nombrearchivoarchivoresultante);
+                                        this.CrearArchivoBase(archivoData);
+                                        str = string.Concat(this.WorkingPath, "\\", fileInfo.Name);
+                                        if (this.CompressFile(str, archivoData) == 0)
+                                        {
+                                            archivoData.archivoresultante = this.GetFileData(archivoData);
+                                            archivoData.estado = "OK";
+                                            dBManager.UpdateValidacionarchivos(archivoData);
+                                        }
+                                        archivoData.ArchivoData = null;
+                                        archivoData.archivoresultante = null;
+                                    }
+                                    else
+                                    {
+                                        archivoData.archivoresultante = archivoData.ArchivoData;
+                                        archivoData.estado = "ER";
+                                        archivoData.mensajeerror = "ARCHIVO DEBE SER PDF";
+                                        dBManager.UpdateValidacionarchivos(archivoData);
+                                        archivoData.archivoresultante = null;
+                                        archivoData.ArchivoData = null;
+                                        continue;
+                                    }
+                                }
+                                else if (archivoData.accion == "C" && (archivoData.ArchivoData == null || archivoData.ArchivoData.Length == 0))
+                                {
+                                    archivoData.estado = "ER";
+                                    archivoData.mensajeerror = "ARCHIVO DEBE SER PDF";
+                                    dBManager.UpdateValidacionarchivos(archivoData);
+                                }
+                                if (archivoData.accion == "AB" && archivoData.ArchivoData != null && archivoData.ArchivoData.Length != 0)
+                                {
+                                    this.CorregirNombre(archivoData);
+                                    fileInfo = new FileInfo(archivoData.nombrearchivoarchivoresultante);
+                                    this.CrearArchivoBase(archivoData);
+                                    stopwatch.Stop();
+                                    elapsed = stopwatch.Elapsed;
+                                    this.WriteLog(string.Format("Archivo base Time: {0}h {1}m {2}s {3}ms", new object[] { elapsed.Hours, elapsed.Minutes, elapsed.Seconds, elapsed.Milliseconds }), null);
+                                    stopwatch.Restart();
+                                    str = string.Concat(this.WorkingPath, "\\", fileInfo.Name);
+                                    int pDF2 = 0;
+                                    if (!archivoData.nombrearchivoarchivo.EndsWith(".pdf") && archivoData.ProcesarExcel)
+                                    {
+                                        pDF2 = this.ConvertToPDF(str, archivoData, null);
+                                        elapsed = stopwatch.Elapsed;
+                                        this.WriteLog(string.Format("ConvertToPDF Time: {0}h {1}m {2}s {3}ms", new object[] { elapsed.Hours, elapsed.Minutes, elapsed.Seconds, elapsed.Milliseconds }), null);
+                                        stopwatch.Restart();
+                                    }
+                                    if (pDF2 == 0)
+                                    {
+                                        pDF2 = this.ConvertToPDF(str, archivoData, "waterMark");
+                                        elapsed = stopwatch.Elapsed;
+                                        this.WriteLog(string.Format("marca de agua Time: {0}h {1}m {2}s {3}ms", new object[] { elapsed.Hours, elapsed.Minutes, elapsed.Seconds, elapsed.Milliseconds }), null);
+                                        stopwatch.Restart();
+                                        if (pDF2 == 0)
+                                        {
+                                            pDF2 = this.AddTextMark(archivoData, str);
+                                            elapsed = stopwatch.Elapsed;
+                                            this.WriteLog(string.Format("AddTextMark Time: {0}h {1}m {2}s {3}ms", new object[] { elapsed.Hours, elapsed.Minutes, elapsed.Seconds, elapsed.Milliseconds }), null);
+                                            stopwatch.Restart();
+                                            if (pDF2 == 0)
+                                            {
+                                                archivoData.archivoresultante = this.GetFileData(archivoData);
+                                                archivoData.estado = "OK";
+                                                dBManager.UpdateValidacionarchivos(archivoData);
+                                                elapsed = stopwatch.Elapsed;
+                                                this.WriteLog(string.Format("Save DB Time: {0}h {1}m {2}s {3}ms", new object[] { elapsed.Hours, elapsed.Minutes, elapsed.Seconds, elapsed.Milliseconds }), null);
+                                                stopwatch.Restart();
+                                            }
+                                            archivoData.ArchivoData = null;
+                                            archivoData.archivoresultante = null;
+                                        }
+                                        else
+                                        {
+                                            this.ReportError(archivoData, pDF2);
+                                            continue;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        this.ReportError(archivoData, pDF2);
+                                        continue;
+                                    }
+                                }
+                                else if (archivoData.accion == "AB" && (archivoData.ArchivoData == null || archivoData.ArchivoData.Length == 0))
+                                {
+                                    archivoData.estado = "ER";
+                                    archivoData.mensajeerror = "NO SE PUEDE CONVERTIR A PDF";
+                                    dBManager.UpdateValidacionarchivos(archivoData);
+                                }
+                                if (archivoData.accion == "AC" && archivoData.ArchivoData != null && archivoData.ArchivoData.Length != 0)
+                                {
+                                    this.CorregirNombre(archivoData);
+                                    fileInfo = new FileInfo(archivoData.nombrearchivoarchivoresultante);
+                                    this.CrearArchivoBase(archivoData);
+                                    str = string.Concat(this.WorkingPath, "\\", fileInfo.Name);
+                                    int num2 = 0;
+                                    if (!archivoData.nombrearchivoarchivo.EndsWith(".pdf") && archivoData.ProcesarExcel)
+                                    {
+                                        num2 = this.ConvertToPDF(str, archivoData, null);
+                                    }
+                                    if (num2 == 0)
+                                    {
+                                        num2 = this.CompressFile(str, archivoData);
+                                        if (num2 == 0)
+                                        {
+                                            archivoData.archivoresultante = this.GetFileData(archivoData);
+                                            archivoData.estado = "OK";
+                                            dBManager.UpdateValidacionarchivos(archivoData);
+                                        }
+                                        archivoData.ArchivoData = null;
+                                        archivoData.archivoresultante = null;
+                                    }
+                                    else
+                                    {
+                                        this.ReportError(archivoData, num2);
+                                        continue;
+                                    }
+                                }
+                                else if (archivoData.accion == "AC" && (archivoData.ArchivoData == null || archivoData.ArchivoData.Length == 0))
+                                {
+                                    archivoData.estado = "ER";
+                                    archivoData.mensajeerror = "NO SE PUEDE CONVERTIR A PDF";
+                                    dBManager.UpdateValidacionarchivos(archivoData);
+                                }
+                                if (archivoData.accion == "BC" && archivoData.ArchivoData != null && archivoData.ArchivoData.Length != 0)
+                                {
+                                    this.CorregirNombre(archivoData);
+                                    if (archivoData.nombrearchivoarchivo.EndsWith(".pdf"))
+                                    {
+                                        fileInfo = new FileInfo(archivoData.nombrearchivoarchivoresultante);
+                                        this.CrearArchivoBase(archivoData);
+                                        str = string.Concat(this.WorkingPath, "\\", fileInfo.Name);
+                                        int pDF3 = this.ConvertToPDF(str, archivoData, "waterMark");
+                                        if (pDF3 == 0)
+                                        {
+                                            pDF3 = this.AddTextMark(archivoData, str);
+                                            if (pDF3 != 0)
+                                            {
+                                                continue;
+                                            }
+                                            pDF3 = this.CompressFile(str, archivoData);
+                                            if (pDF3 == 0)
+                                            {
+                                                archivoData.archivoresultante = this.GetFileData(archivoData);
+                                                archivoData.estado = "OK";
+                                                dBManager.UpdateValidacionarchivos(archivoData);
+                                            }
+                                            archivoData.ArchivoData = null;
+                                            archivoData.archivoresultante = null;
+                                        }
+                                        else
+                                        {
+                                            this.ReportError(archivoData, pDF3);
+                                            continue;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        archivoData.archivoresultante = archivoData.ArchivoData;
+                                        archivoData.estado = "ER";
+                                        archivoData.mensajeerror = "ARCHIVO DEBE SER PDF";
+                                        dBManager.UpdateValidacionarchivos(archivoData);
+                                        archivoData.archivoresultante = null;
+                                        archivoData.ArchivoData = null;
+                                        continue;
+                                    }
+                                }
+                                else if (archivoData.accion == "BC" && (archivoData.ArchivoData == null || archivoData.ArchivoData.Length == 0))
+                                {
+                                    archivoData.estado = "ER";
+                                    archivoData.mensajeerror = "ARCHIVO DEBE SER PDF";
+                                    dBManager.UpdateValidacionarchivos(archivoData);
+                                }
+                                if (archivoData.accion == "ABC" && archivoData.ArchivoData != null && archivoData.ArchivoData.Length != 0)
+                                {
+                                    this.CorregirNombre(archivoData);
+                                    fileInfo = new FileInfo(archivoData.nombrearchivoarchivoresultante);
+                                    this.CrearArchivoBase(archivoData);
+                                    str = string.Concat(this.WorkingPath, "\\", fileInfo.Name);
+                                    int num3 = 0;
+                                    if (!archivoData.nombrearchivoarchivo.EndsWith(".pdf") && archivoData.ProcesarExcel)
+                                    {
+                                        num3 = this.ConvertToPDF(str, archivoData, null);
+                                    }
+                                    if (num3 == 0)
+                                    {
+                                        num3 = this.ConvertToPDF(str, archivoData, "waterMark");
+                                        if (num3 == 0)
+                                        {
+                                            num3 = this.AddTextMark(archivoData, str);
+                                            if (num3 != 0)
+                                            {
+                                                continue;
+                                            }
+                                            num3 = this.CompressFile(str, archivoData);
+                                            if (num3 == 0)
+                                            {
+                                                archivoData.archivoresultante = this.GetFileData(archivoData);
+                                                archivoData.estado = "OK";
+                                                dBManager.UpdateValidacionarchivos(archivoData);
+                                            }
+                                            archivoData.ArchivoData = null;
+                                            archivoData.archivoresultante = null;
+                                        }
+                                        else
+                                        {
+                                            this.ReportError(archivoData, num3);
+                                            continue;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        this.ReportError(archivoData, num3);
+                                        continue;
+                                    }
+                                }
+                                else if (archivoData.accion == "ABC" && (archivoData.ArchivoData == null || archivoData.ArchivoData.Length == 0))
+                                {
+                                    archivoData.estado = "ER";
+                                    archivoData.mensajeerror = "NO SE PUEDE CONVERTIR A PDF";
+                                    dBManager.UpdateValidacionarchivos(archivoData);
+                                }
+                                int count = num * 100 / this.globalData.Count;
+                                num++;
                             }
                             else
-                                continue;
+                            {
+                                this.CorregirNombre(archivoData);
+                                archivoData.estado = "OK";
+                                archivoData.archivoresultante = archivoData.ArchivoData;
+                                dBManager.UpdateValidacionarchivos(archivoData);
+                                archivoData.ArchivoData = null;
+                                archivoData.archivoresultante = null;
+                            }
                         }
-                        else if (processInfo2.accion == "ABC" && (processInfo2.ArchivoData == null || processInfo2.ArchivoData.Length == 0))
+                        else
                         {
-                            processInfo2.estado = "ER";
-                            processInfo2.mensajeerror = "NO SE PUEDE CONVERTIR A PDF";
-                            dbManager.UpdateValidacionarchivos(processInfo2);
+                            return;
                         }
-                        int num3 = num1 * 100 / this.globalData.Count;
-                        ++num1;
                     }
-
+                    list.RemoveRange(0, list1.Count);
                 }
-                list1.RemoveRange(0, list2.Count);
+                else
+                {
+                    stopwatch.Stop();
+                    elapsed = stopwatch.Elapsed;
+                    this.WriteLog(string.Format("Time: {0}h {1}m {2}s {3}ms", new object[] { elapsed.Hours, elapsed.Minutes, elapsed.Seconds, elapsed.Milliseconds }), null);
+                    this.ClearFolder();
+                    break;
+                }
             }
-            stopwatch.Stop();
-            TimeSpan elapsed1 = stopwatch.Elapsed;
-            this.WriteLog(string.Format("Time: {0}h {1}m {2}s {3}ms", (object)elapsed1.Hours, (object)elapsed1.Minutes, (object)elapsed1.Seconds, (object)elapsed1.Milliseconds));
-            this.ClearFolder();
         }
 
-        private bool IsValidExtension(SisnetData.ProcessInfo itemExport)
+        private bool IsValidExtension(ProcessInfo itemExport)
         {
-            string str = new Regex("[^A-Za-z0-9á-úÁ-Ó ._-]", RegexOptions.IgnoreCase).Replace(itemExport.nombrearchivoarchivo.Normalize(NormalizationForm.FormD), "");
-            string mensajeError = null;
+            Regex regex = new Regex("[^A-Za-z0-9á-úÁ-Ó ._-]", RegexOptions.IgnoreCase);
+            string nombrearchivoarchivo = itemExport.nombrearchivoarchivo.Normalize(NormalizationForm.FormD);
 
-            if (!str.Contains("."))
+            FileInfo ff;
+            bool isValidName = true;
+            string errorMessage = "EL ARCHIVO NO TIENE EXTENSION";
+            try
             {
-                mensajeError = "EL ARCHIVO NO TIENE EXTENSION";
+                ff = new FileInfo(nombrearchivoarchivo);
+                if (String.IsNullOrEmpty(ff.Extension))
+                {
+                    isValidName = false;
+                }
+                else if (!String.IsNullOrEmpty(ff.Extension) && String.IsNullOrEmpty(ff.Name.Replace(ff.Extension, "")) ) {
+                    isValidName = false;
+                    errorMessage = "EL ARCHIVO NO TIENE UN NOMBRE APROPIADO";
+                }
+                
+            }
+            catch (System.ArgumentException ex)
+            {
+                isValidName = false;
+                errorMessage = "EL ARCHIVO NO TIENE UN NOMBRE APROPIADO";
             }
 
-            string[] extensionesPermitidas = this.extensiones.ToLower().Split(",".ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
-            string extensionArchivo = itemExport.nombrearchivoarchivo.Normalize(NormalizationForm.FormD);
-            extensionArchivo = extensionArchivo.Substring(extensionArchivo.LastIndexOf(".") + 1).ToLower();
 
-            if (!extensionesPermitidas.Contains(extensionArchivo))
-            {
-                mensajeError = "EXTENSION DEL ARCHIVO NO PERMITIDA";
-            }
-
-            if (String.IsNullOrEmpty(mensajeError))
+            nombrearchivoarchivo = regex.Replace(nombrearchivoarchivo, "");
+            if (isValidName && nombrearchivoarchivo.Contains("."))
             {
                 return true;
             }
-
-            itemExport.nombrearchivoarchivoresultante = str;
+            itemExport.nombrearchivoarchivoresultante = nombrearchivoarchivo;
             itemExport.estado = "ER";
-            itemExport.mensajeerror = mensajeError;
+            itemExport.mensajeerror = errorMessage;
             itemExport.archivoresultante = itemExport.ArchivoData;
             DBManager.GetDBManager().UpdateValidacionarchivos(itemExport);
-            itemExport.ArchivoData = (byte[])null;
-            itemExport.archivoresultante = (byte[])null;
+            itemExport.ArchivoData = null;
+            itemExport.archivoresultante = null;
             return false;
         }
 
         private void WriteLog(string text, Exception ex = null)
         {
             if (!this.log || !text.EndsWith("ms"))
+            {
                 return;
-            string str = this.GetCurrentDirectory() + "log.txt";
-            string path1 = str;
+            }
+            string currentDirectory = this.GetCurrentDirectory();
+            currentDirectory = string.Concat(currentDirectory, "log.txt");
             DateTime now = DateTime.Now;
-            string contents1 = now.ToString("yyyy-MM-dd HH:mm:ss") + " " + text + "\r\n";
-            File.AppendAllText(path1, contents1);
-            if (ex == null)
-                return;
-            string path2 = str;
-            now = DateTime.Now;
-            string contents2 = now.ToString("yyyy-MM-dd HH:mm:ss") + " " + ex.StackTrace + "\r\n";
-            File.AppendAllText(path2, contents2);
+            File.AppendAllText(currentDirectory, string.Concat(now.ToString("yyyy-MM-dd HH:mm:ss"), " ", text, "\r\n"));
+            if (ex != null)
+            {
+                now = DateTime.Now;
+                File.AppendAllText(currentDirectory, string.Concat(now.ToString("yyyy-MM-dd HH:mm:ss"), " ", ex.StackTrace, "\r\n"));
+            }
         }
 
-        private string GetCurrentDirectory() => AppDomain.CurrentDomain.BaseDirectory;
-
-        private int AddTextMark(SisnetData.ProcessInfo itemExport, string fullPath)
+        private string GetCurrentDirectory()
         {
-            int errorCode = 0;
+            return AppDomain.CurrentDomain.BaseDirectory;
+        }
+
+        private int AddTextMark(ProcessInfo itemExport, string fullPath)
+        {
+            int pDF = 0;
             if (!string.IsNullOrEmpty(itemExport.etiqueta1))
-                errorCode = this.ConvertToPDF(fullPath, itemExport, "TextWaterMark1");
-            if (errorCode != 0)
             {
-                this.ReportError(itemExport, errorCode);
-                return errorCode;
+                pDF = this.ConvertToPDF(fullPath, itemExport, "TextWaterMark1");
+            }
+            if (pDF != 0)
+            {
+                this.ReportError(itemExport, pDF);
+                return pDF;
             }
             if (!string.IsNullOrEmpty(itemExport.etiqueta2))
-                errorCode = this.ConvertToPDF(fullPath, itemExport, "TextWaterMark2");
-            if (errorCode != 0)
             {
-                this.ReportError(itemExport, errorCode);
-                return errorCode;
+                pDF = this.ConvertToPDF(fullPath, itemExport, "TextWaterMark2");
+            }
+            if (pDF != 0)
+            {
+                this.ReportError(itemExport, pDF);
+                return pDF;
             }
             if (!string.IsNullOrEmpty(itemExport.etiqueta3))
-                errorCode = this.ConvertToPDF(fullPath, itemExport, "TextWaterMark3");
-            if (errorCode != 0)
             {
-                this.ReportError(itemExport, errorCode);
-                return errorCode;
+                pDF = this.ConvertToPDF(fullPath, itemExport, "TextWaterMark3");
+            }
+            if (pDF != 0)
+            {
+                this.ReportError(itemExport, pDF);
+                return pDF;
             }
             if (!string.IsNullOrEmpty(itemExport.etiqueta4))
-                errorCode = this.ConvertToPDF(fullPath, itemExport, "TextWaterMark4");
-            if (errorCode == 0)
+            {
+                pDF = this.ConvertToPDF(fullPath, itemExport, "TextWaterMark4");
+            }
+            if (pDF == 0)
+            {
                 return 0;
-            this.ReportError(itemExport, errorCode);
-            return errorCode;
+            }
+            this.ReportError(itemExport, pDF);
+            return pDF;
         }
 
-        private void ReportError(SisnetData.ProcessInfo itemExport, int errorCode)
+        private void ReportError(ProcessInfo itemExport, int errorCode)
         {
-            DBManager dbManager = DBManager.GetDBManager();
+            DBManager dBManager = DBManager.GetDBManager();
             itemExport.extensionarchivoresultant = itemExport.extensionarchivo;
             itemExport.estado = "ER";
             itemExport.mensajeerror = "NO SE PUEDE CONVERTIR A PDF";
             itemExport.archivoresultante = itemExport.ArchivoData;
-            itemExport.ArchivoData = (byte[])null;
+            itemExport.ArchivoData = null;
             itemExport.nombrearchivoarchivoresultante = itemExport.nombrearchivoarchivo;
-            SisnetData.ProcessInfo processInfo = itemExport;
-            dbManager.UpdateValidacionarchivos(processInfo);
+            dBManager.UpdateValidacionarchivos(itemExport);
         }
 
-        private void CrearArchivoBase(SisnetData.ProcessInfo itemExport)
+        private void CrearArchivoBase(ProcessInfo itemExport)
         {
             using (MemoryStream memoryStream = new MemoryStream(itemExport.ArchivoData))
             {
-                using (FileStream fileStream = new FileStream(this.WorkingPath + "\\" + new FileInfo(itemExport.nombrearchivoarchivoresultante).Name, FileMode.Create, FileAccess.Write))
+                FileInfo fileInfo = new FileInfo(itemExport.nombrearchivoarchivoresultante);
+                using (FileStream fileStream = new FileStream(string.Concat(this.WorkingPath, "\\", fileInfo.Name), FileMode.Create, FileAccess.Write))
                 {
-                    byte[] buffer = new byte[memoryStream.Length];
-                    memoryStream.Read(buffer, 0, (int)memoryStream.Length);
-                    fileStream.Write(buffer, 0, buffer.Length);
+                    byte[] numArray = new byte[memoryStream.Length];
+                    memoryStream.Read(numArray, 0, (int)memoryStream.Length);
+                    fileStream.Write(numArray, 0, (int)numArray.Length);
                     memoryStream.Close();
                 }
             }
         }
 
-        private void CorregirNombre(SisnetData.ProcessInfo itemExport)
+        private void CorregirNombre(ProcessInfo itemExport)
         {
             Regex regex = new Regex("[^A-Za-z0-9á-úÁ-Ó ._-]", RegexOptions.IgnoreCase);
             itemExport.nombrearchivoarchivoresultante = itemExport.nombrearchivoarchivo.Normalize(NormalizationForm.FormD);
             itemExport.nombrearchivoarchivoresultante = regex.Replace(itemExport.nombrearchivoarchivoresultante, "");
-            if (!itemExport.nombrearchivoarchivoresultante.Contains("."))
-                return;
-            string nombrearchivoarchivoresultante = itemExport.nombrearchivoarchivoresultante;
-            string str1 = nombrearchivoarchivoresultante.Substring(0, nombrearchivoarchivoresultante.LastIndexOf("."));
-            string str2 = nombrearchivoarchivoresultante.Substring(nombrearchivoarchivoresultante.LastIndexOf("."));
-            string str3 = str1.Replace(".", "_");
-            itemExport.nombrearchivoarchivoresultante = str3 + str2.ToLower();
-            itemExport.extensionarchivoresultant = str2.ToUpper();
-            itemExport.nombrearchivoarchivo = itemExport.nombrearchivoarchivoresultante;
-            itemExport.extensionarchivo = str2.ToUpper();
+            if (itemExport.nombrearchivoarchivoresultante.Contains("."))
+            {
+                string str = itemExport.nombrearchivoarchivoresultante;
+                string str1 = str.Substring(0, str.LastIndexOf("."));
+                string str2 = str.Substring(str.LastIndexOf("."));
+                str1 = str1.Replace(".", "_");
+                itemExport.nombrearchivoarchivoresultante = string.Concat(str1, str2.ToLower());
+                itemExport.extensionarchivoresultant = str2.ToUpper();
+                itemExport.nombrearchivoarchivo = itemExport.nombrearchivoarchivoresultante;
+                itemExport.extensionarchivo = str2.ToUpper();
+            }
         }
 
-        private byte[] GetFileData(SisnetData.ProcessInfo itemExport)
+        private byte[] GetFileData(ProcessInfo itemExport)
         {
-            string str = this.WorkingPath + "\\" + itemExport.nombrearchivoarchivoresultante;
+            string str = string.Concat(this.WorkingPath, "\\", itemExport.nombrearchivoarchivoresultante);
             FileInfo fileInfo = new FileInfo(str);
-            byte[] buffer = (byte[])null;
+            byte[] numArray = null;
             using (FileStream fileStream = new FileStream(str, FileMode.Open, FileAccess.Read))
             {
-                buffer = new byte[fileStream.Length];
-                int length1 = (int)fileStream.Length;
-                int offset = 0;
-                int num;
-                for (; length1 > 0; length1 -= num)
+                numArray = new byte[fileStream.Length];
+                int length = (int)fileStream.Length;
+                int num = 0;
+                while (length > 0)
                 {
-                    num = fileStream.Read(buffer, offset, length1);
-                    if (num != 0)
-                        offset += num;
-                    else
+                    int num1 = fileStream.Read(numArray, num, length);
+                    if (num1 == 0)
+                    {
                         break;
+                    }
+                    num += num1;
+                    length -= num1;
                 }
-                int length2 = buffer.Length;
+                length = (int)numArray.Length;
             }
-            return buffer;
+            return numArray;
         }
 
         private void ClearFolder()
         {
-            IEnumerable<FileInfo> source = new DirectoryInfo(this.WorkingPath).EnumerateFiles("*.*");
-            if (!source.Any<FileInfo>())
-                return;
-            foreach (FileInfo fileInfo in source)
+            IEnumerable<FileInfo> fileInfos = (new DirectoryInfo(this.WorkingPath)).EnumerateFiles("*.*");
+            if (fileInfos.Any<FileInfo>())
             {
-                if (!fileInfo.Extension.ToLower().Contains("bat") && !fileInfo.Extension.ToLower().Contains("exe"))
+                foreach (FileInfo fileInfo in fileInfos)
+                {
+                    if (fileInfo.Extension.ToLower().Contains("bat") || fileInfo.Extension.ToLower().Contains("exe"))
+                    {
+                        continue;
+                    }
                     fileInfo.Delete();
+                }
             }
         }
 
-        private int ConvertToPDF(string fullpath, SisnetData.ProcessInfo itemExport, string mode)
+        private int ConvertToPDF(string fullpath, ProcessInfo itemExport, string mode)
         {
-            this.WriteLog("Start ConvertToPDF " + itemExport.fldidvalidacionarchivos.ToString() + " action:" + itemExport.accion);
+            FileInfo fileInfo;
+            int exitCode;
+            int num = itemExport.fldidvalidacionarchivos;
+            this.WriteLog(string.Concat("Start ConvertToPDF ", num.ToString(), " action:", itemExport.accion), null);
             string str = itemExport.accion;
             if (str.Contains("A") && mode == null)
             {
                 str = "A";
-                if (new FileInfo(fullpath).Extension.Contains(".pdf"))
+                fileInfo = new FileInfo(fullpath);
+                if (fileInfo.Extension.Contains(".pdf"))
+                {
                     return 0;
+                }
             }
             else if (str.Contains("B") && mode != null)
             {
                 str = "B";
-                FileInfo fileInfo = new FileInfo(fullpath);
+                fileInfo = new FileInfo(fullpath);
                 if (!fileInfo.Extension.Contains(".pdf"))
-                    fullpath = fileInfo.DirectoryName + "\\" + fileInfo.Name.Replace(fileInfo.Extension, ".pdf");
-            }
-            FileInfo fileInfo1 = new FileInfo(fullpath);
-            string text = string.Empty;
-            if (!(str == "A"))
-            {
-                if (str == "B")
                 {
-                    if (!(mode == "waterMark"))
-                    {
-                        if (!(mode == "TextWaterMark1"))
-                        {
-                            if (!(mode == "TextWaterMark2"))
-                            {
-                                if (!(mode == "TextWaterMark3"))
-                                {
-                                    if (mode == "TextWaterMark4")
-                                        text = string.Format(this.cmdTextWaterMark4, (object)fileInfo1.FullName, (object)fileInfo1.DirectoryName, (object)itemExport.etiqueta4);
-                                }
-                                else
-                                    text = string.Format(this.cmdTextWaterMark3, (object)fileInfo1.FullName, (object)fileInfo1.DirectoryName, (object)itemExport.etiqueta3);
-                            }
-                            else
-                                text = string.Format(this.cmdTextWaterMark2, (object)fileInfo1.FullName, (object)fileInfo1.DirectoryName, (object)itemExport.etiqueta2);
-                        }
-                        else
-                            text = string.Format(this.cmdTextWaterMark1, (object)fileInfo1.FullName, (object)fileInfo1.DirectoryName, (object)itemExport.etiqueta1);
-                    }
-                    else
-                        text = string.Format(this.cmdWaterMark, (object)fileInfo1.FullName, (object)fileInfo1.DirectoryName, (object)this.imgLogo);
+                    fullpath = string.Concat(fileInfo.DirectoryName, "\\", fileInfo.Name.Replace(fileInfo.Extension, ".pdf"));
                 }
             }
-            else
-                text = string.Format(this.cmdConvertPDF, (object)fileInfo1.FullName, (object)fileInfo1.DirectoryName);
-            ProcessStartInfo startInfo = new ProcessStartInfo();
-            startInfo.Arguments = text;
-            startInfo.FileName = this.PdfExe;
-            startInfo.WindowStyle = ProcessWindowStyle.Normal;
-            startInfo.CreateNoWindow = true;
-            startInfo.UseShellExecute = false;
-            this.WriteLog("Launching  " + startInfo.FileName);
+            fileInfo = new FileInfo(fullpath);
+            string empty = string.Empty;
+            if (str == "A")
+            {
+                empty = string.Format(this.cmdConvertPDF, fileInfo.FullName, fileInfo.DirectoryName);
+            }
+            else if (str == "B")
+            {
+                if (mode == "waterMark")
+                {
+                    empty = string.Format(this.cmdWaterMark, fileInfo.FullName, fileInfo.DirectoryName, this.imgLogo);
+                }
+                else if (mode == "TextWaterMark1")
+                {
+                    empty = string.Format(this.cmdTextWaterMark1, fileInfo.FullName, fileInfo.DirectoryName, itemExport.etiqueta1);
+                }
+                else if (mode == "TextWaterMark2")
+                {
+                    empty = string.Format(this.cmdTextWaterMark2, fileInfo.FullName, fileInfo.DirectoryName, itemExport.etiqueta2);
+                }
+                else if (mode == "TextWaterMark3")
+                {
+                    empty = string.Format(this.cmdTextWaterMark3, fileInfo.FullName, fileInfo.DirectoryName, itemExport.etiqueta3);
+                }
+                else if (mode == "TextWaterMark4")
+                {
+                    empty = string.Format(this.cmdTextWaterMark4, fileInfo.FullName, fileInfo.DirectoryName, itemExport.etiqueta4);
+                }
+            }
+            ProcessStartInfo processStartInfo = new ProcessStartInfo()
+            {
+                Arguments = empty,
+                FileName = this.PdfExe,
+                WindowStyle = ProcessWindowStyle.Normal,
+                CreateNoWindow = true,
+                UseShellExecute = false
+            };
+            this.WriteLog(string.Concat("Launching  ", processStartInfo.FileName), null);
             Stopwatch stopwatch = new Stopwatch();
-            int exitCode;
-            using (this.proc = Process.Start(startInfo))
+            Process process = Process.Start(processStartInfo);
+            Process process1 = process;
+            this.proc = process;
+            using (process1)
             {
                 Thread.Sleep(this.secondsToPressContinue2PDF * 1000);
-                this.WriteLog("WaitForExit");
+                this.WriteLog("WaitForExit", null);
                 stopwatch.Start();
                 this.proc.WaitForExit();
                 stopwatch.Stop();
                 TimeSpan elapsed = stopwatch.Elapsed;
-                this.WriteLog(string.Format("WaitForExit Time: {0}h {1}m {2}s {3}ms", (object)elapsed.Hours, (object)elapsed.Minutes, (object)elapsed.Seconds, (object)elapsed.Milliseconds));
+                this.WriteLog(string.Format("WaitForExit Time: {0}h {1}m {2}s {3}ms", new object[] { elapsed.Hours, elapsed.Minutes, elapsed.Seconds, elapsed.Milliseconds }), null);
                 exitCode = this.proc.ExitCode;
             }
-            string[] strArray = new string[6];
-            strArray[0] = "End ConvertToPDF ";
-            int fldidvalidacionarchivos = itemExport.fldidvalidacionarchivos;
-            strArray[1] = fldidvalidacionarchivos.ToString();
-            strArray[2] = " action:";
-            strArray[3] = itemExport.accion;
-            strArray[4] = " with exitCode: ";
-            strArray[5] = exitCode.ToString();
-            this.WriteLog(string.Concat(strArray));
+            string[] strArrays = new string[] { "End ConvertToPDF ", null, null, null, null, null };
+            num = itemExport.fldidvalidacionarchivos;
+            strArrays[1] = num.ToString();
+            strArrays[2] = " action:";
+            strArrays[3] = itemExport.accion;
+            strArrays[4] = " with exitCode: ";
+            strArrays[5] = exitCode.ToString();
+            this.WriteLog(string.Concat(strArrays), null);
             if (exitCode == 0)
             {
-                if (fileInfo1.Extension.ToLower().Contains(".pdf"))
+                if (fileInfo.Extension.ToLower().Contains(".pdf"))
                 {
-                    fileInfo1.Delete();
-                    File.Move(fileInfo1.FullName.Replace(".pdf", " (1).pdf"), fileInfo1.FullName);
+                    fileInfo.Delete();
+                    File.Move(fileInfo.FullName.Replace(".pdf", " (1).pdf"), fileInfo.FullName);
                 }
-                itemExport.nombrearchivoarchivoresultante = fileInfo1.Name.Replace(fileInfo1.Extension, ".pdf");
+                itemExport.nombrearchivoarchivoresultante = fileInfo.Name.Replace(fileInfo.Extension, ".pdf");
                 itemExport.extensionarchivoresultant = ".PDF";
-                if (!File.Exists(fileInfo1.DirectoryName + "\\" + itemExport.nombrearchivoarchivoresultante))
+                if (!File.Exists(string.Concat(fileInfo.DirectoryName, "\\", itemExport.nombrearchivoarchivoresultante)))
                 {
-                    this.WriteLog("Invalid 2PDF execution [" + fileInfo1.DirectoryName + "\\" + itemExport.nombrearchivoarchivoresultante + "] no existe!");
-                    this.WriteLog(text);
+                    this.WriteLog(string.Concat(new string[] { "Invalid 2PDF execution [", fileInfo.DirectoryName, "\\", itemExport.nombrearchivoarchivoresultante, "] no existe!" }), null);
+                    this.WriteLog(empty, null);
                     return -1;
                 }
             }
-            fldidvalidacionarchivos = itemExport.fldidvalidacionarchivos;
-            this.WriteLog("End ConvertToPDF " + fldidvalidacionarchivos.ToString() + " action:" + itemExport.accion);
+            num = itemExport.fldidvalidacionarchivos;
+            this.WriteLog(string.Concat("End ConvertToPDF ", num.ToString(), " action:", itemExport.accion), null);
             return exitCode;
         }
 
-        private int ConvertToPDF_BKP(string fullpath, SisnetData.ProcessInfo itemExport, string mode)
+        private int ConvertToPDF_BKP(string fullpath, ProcessInfo itemExport, string mode)
         {
-            this.WriteLog("Start ConvertToPDF " + itemExport.fldidvalidacionarchivos.ToString() + " action:" + itemExport.accion);
+            FileInfo fileInfo;
+            int exitCode;
+            int num = itemExport.fldidvalidacionarchivos;
+            this.WriteLog(string.Concat("Start ConvertToPDF ", num.ToString(), " action:", itemExport.accion), null);
             string str = itemExport.accion;
             if (str.Contains("A") && mode == null)
             {
                 str = "A";
-                if (new FileInfo(fullpath).Extension.Contains(".pdf"))
+                fileInfo = new FileInfo(fullpath);
+                if (fileInfo.Extension.Contains(".pdf"))
+                {
                     return 0;
+                }
             }
             else if (str.Contains("B") && mode != null)
             {
                 str = "B";
-                FileInfo fileInfo = new FileInfo(fullpath);
+                fileInfo = new FileInfo(fullpath);
                 if (!fileInfo.Extension.Contains(".pdf"))
-                    fullpath = fileInfo.DirectoryName + "\\" + fileInfo.Name.Replace(fileInfo.Extension, ".pdf");
-            }
-            FileInfo fileInfo1 = new FileInfo(fullpath);
-            string text = string.Empty;
-            if (!(str == "A"))
-            {
-                if (str == "B")
                 {
-                    if (!(mode == "waterMark"))
-                    {
-                        if (!(mode == "TextWaterMark1"))
-                        {
-                            if (!(mode == "TextWaterMark2"))
-                            {
-                                if (!(mode == "TextWaterMark3"))
-                                {
-                                    if (mode == "TextWaterMark4")
-                                        text = string.Format(this.cmdTextWaterMark4, (object)fileInfo1.FullName, (object)fileInfo1.DirectoryName, (object)itemExport.etiqueta4);
-                                }
-                                else
-                                    text = string.Format(this.cmdTextWaterMark3, (object)fileInfo1.FullName, (object)fileInfo1.DirectoryName, (object)itemExport.etiqueta3);
-                            }
-                            else
-                                text = string.Format(this.cmdTextWaterMark2, (object)fileInfo1.FullName, (object)fileInfo1.DirectoryName, (object)itemExport.etiqueta2);
-                        }
-                        else
-                            text = string.Format(this.cmdTextWaterMark1, (object)fileInfo1.FullName, (object)fileInfo1.DirectoryName, (object)itemExport.etiqueta1);
-                    }
-                    else
-                        text = string.Format(this.cmdWaterMark, (object)fileInfo1.FullName, (object)fileInfo1.DirectoryName, (object)this.imgLogo);
+                    fullpath = string.Concat(fileInfo.DirectoryName, "\\", fileInfo.Name.Replace(fileInfo.Extension, ".pdf"));
                 }
             }
-            else
-                text = string.Format(this.cmdConvertPDF, (object)fileInfo1.FullName, (object)fileInfo1.DirectoryName);
-            ProcessStartInfo startInfo = new ProcessStartInfo();
-            startInfo.Arguments = text;
-            startInfo.FileName = this.PdfExe;
-            startInfo.WindowStyle = ProcessWindowStyle.Normal;
-            startInfo.CreateNoWindow = true;
-            startInfo.UseShellExecute = false;
-            this.WriteLog("Launching  " + startInfo.FileName);
-            int exitCode;
-            using (this.proc = Process.Start(startInfo))
+            fileInfo = new FileInfo(fullpath);
+            string empty = string.Empty;
+            if (str == "A")
+            {
+                empty = string.Format(this.cmdConvertPDF, fileInfo.FullName, fileInfo.DirectoryName);
+            }
+            else if (str == "B")
+            {
+                if (mode == "waterMark")
+                {
+                    empty = string.Format(this.cmdWaterMark, fileInfo.FullName, fileInfo.DirectoryName, this.imgLogo);
+                }
+                else if (mode == "TextWaterMark1")
+                {
+                    empty = string.Format(this.cmdTextWaterMark1, fileInfo.FullName, fileInfo.DirectoryName, itemExport.etiqueta1);
+                }
+                else if (mode == "TextWaterMark2")
+                {
+                    empty = string.Format(this.cmdTextWaterMark2, fileInfo.FullName, fileInfo.DirectoryName, itemExport.etiqueta2);
+                }
+                else if (mode == "TextWaterMark3")
+                {
+                    empty = string.Format(this.cmdTextWaterMark3, fileInfo.FullName, fileInfo.DirectoryName, itemExport.etiqueta3);
+                }
+                else if (mode == "TextWaterMark4")
+                {
+                    empty = string.Format(this.cmdTextWaterMark4, fileInfo.FullName, fileInfo.DirectoryName, itemExport.etiqueta4);
+                }
+            }
+            ProcessStartInfo processStartInfo = new ProcessStartInfo()
+            {
+                Arguments = empty,
+                FileName = this.PdfExe,
+                WindowStyle = ProcessWindowStyle.Normal,
+                CreateNoWindow = true,
+                UseShellExecute = false
+            };
+            this.WriteLog(string.Concat("Launching  ", processStartInfo.FileName), null);
+            Process process = Process.Start(processStartInfo);
+            Process process1 = process;
+            this.proc = process;
+            using (process1)
             {
                 Thread.Sleep(this.secondsToPressContinue2PDF * 1000);
-                this.WriteLog("WaitForExit");
+                this.WriteLog("WaitForExit", null);
                 this.proc.WaitForExit();
                 exitCode = this.proc.ExitCode;
             }
-            string[] strArray = new string[6];
-            strArray[0] = "End ConvertToPDF ";
-            int fldidvalidacionarchivos = itemExport.fldidvalidacionarchivos;
-            strArray[1] = fldidvalidacionarchivos.ToString();
-            strArray[2] = " action:";
-            strArray[3] = itemExport.accion;
-            strArray[4] = " with exitCode: ";
-            strArray[5] = exitCode.ToString();
-            this.WriteLog(string.Concat(strArray));
+            string[] strArrays = new string[] { "End ConvertToPDF ", null, null, null, null, null };
+            num = itemExport.fldidvalidacionarchivos;
+            strArrays[1] = num.ToString();
+            strArrays[2] = " action:";
+            strArrays[3] = itemExport.accion;
+            strArrays[4] = " with exitCode: ";
+            strArrays[5] = exitCode.ToString();
+            this.WriteLog(string.Concat(strArrays), null);
             if (exitCode == 0)
             {
-                if (fileInfo1.Extension.ToLower().Contains(".pdf"))
+                if (fileInfo.Extension.ToLower().Contains(".pdf"))
                 {
-                    fileInfo1.Delete();
-                    File.Move(fileInfo1.FullName.Replace(".pdf", " (1).pdf"), fileInfo1.FullName);
+                    fileInfo.Delete();
+                    File.Move(fileInfo.FullName.Replace(".pdf", " (1).pdf"), fileInfo.FullName);
                 }
-                itemExport.nombrearchivoarchivoresultante = fileInfo1.Name.Replace(fileInfo1.Extension, ".pdf");
+                itemExport.nombrearchivoarchivoresultante = fileInfo.Name.Replace(fileInfo.Extension, ".pdf");
                 itemExport.extensionarchivoresultant = ".PDF";
-                if (!File.Exists(fileInfo1.DirectoryName + "\\" + itemExport.nombrearchivoarchivoresultante))
+                if (!File.Exists(string.Concat(fileInfo.DirectoryName, "\\", itemExport.nombrearchivoarchivoresultante)))
                 {
-                    this.WriteLog("Invalid 2PDF execution [" + fileInfo1.DirectoryName + "\\" + itemExport.nombrearchivoarchivoresultante + "] no existe!");
-                    this.WriteLog(text);
+                    this.WriteLog(string.Concat(new string[] { "Invalid 2PDF execution [", fileInfo.DirectoryName, "\\", itemExport.nombrearchivoarchivoresultante, "] no existe!" }), null);
+                    this.WriteLog(empty, null);
                     return -1;
                 }
             }
-            fldidvalidacionarchivos = itemExport.fldidvalidacionarchivos;
-            this.WriteLog("End ConvertToPDF " + fldidvalidacionarchivos.ToString() + " action:" + itemExport.accion);
+            num = itemExport.fldidvalidacionarchivos;
+            this.WriteLog(string.Concat("End ConvertToPDF ", num.ToString(), " action:", itemExport.accion), null);
             return exitCode;
         }
 
-        private int CompressFile(string fullpath, SisnetData.ProcessInfo itemExport)
+
+        private int CompressFile(string fullpath, ProcessInfo itemExport)
         {
-            FileInfo fileInfo1 = new FileInfo(fullpath);
-            if (!fileInfo1.Extension.Contains(".pdf"))
-                fullpath = fileInfo1.DirectoryName + "\\" + fileInfo1.Name.Replace(fileInfo1.Extension, ".pdf");
-            FileInfo fileInfo2 = new FileInfo(fullpath);
-            string str1 = fileInfo2.Name.Replace(".pdf", " CP.pdf");
-            string str2 = fileInfo2.DirectoryName + "\\" + str1;
-            string str3 = string.Format(this.cmdCompresorPDF, (object)fileInfo2.FullName, (object)str2);
-            int num;
-            using (this.proc = Process.Start(new ProcessStartInfo()
+            int exitCode;
+            FileInfo fileInfo = new FileInfo(fullpath);
+            if (!fileInfo.Extension.Contains(".pdf"))
             {
-                Arguments = str3,
+                fullpath = string.Concat(fileInfo.DirectoryName, "\\", fileInfo.Name.Replace(fileInfo.Extension, ".pdf"));
+            }
+            fileInfo = new FileInfo(fullpath);
+            string str = fileInfo.Name.Replace(".pdf", " CP.pdf");
+            str = string.Concat(fileInfo.DirectoryName, "\\", str);
+            string str1 = string.Format(this.cmdCompresorPDF, fileInfo.FullName, str);
+            ProcessStartInfo processStartInfo = new ProcessStartInfo()
+            {
+                Arguments = str1,
                 FileName = this.PdfCompresorExe,
                 WindowStyle = ProcessWindowStyle.Hidden,
                 CreateNoWindow = true,
                 UseShellExecute = false
-            }))
+            };
+            Process process = Process.Start(processStartInfo);
+            Process process1 = process;
+            this.proc = process;
+            using (process1)
             {
                 this.proc.WaitForExit();
-                num = this.proc.ExitCode;
+                exitCode = this.proc.ExitCode;
             }
-            if (num == 0 || num == 1)
+            if (exitCode == 0 || exitCode == 1)
             {
-                FileInfo fileInfo3 = new FileInfo(str2);
-                if (fileInfo3.Length < fileInfo2.Length)
+                FileInfo fileInfo1 = new FileInfo(str);
+                if (fileInfo1.Length >= fileInfo.Length)
                 {
-                    fileInfo2.Delete();
-                    File.Move(str2, fileInfo2.FullName);
+                    fileInfo1.Delete();
                 }
                 else
-                    fileInfo3.Delete();
-                itemExport.nombrearchivoarchivoresultante = fileInfo2.Name.Replace(fileInfo2.Extension, ".pdf");
+                {
+                    fileInfo.Delete();
+                    File.Move(str, fileInfo.FullName);
+                }
+                itemExport.nombrearchivoarchivoresultante = fileInfo.Name.Replace(fileInfo.Extension, ".pdf");
                 itemExport.extensionarchivoresultant = ".PDF";
-                num = 0;
+                exitCode = 0;
             }
-            return num;
+            return exitCode;
         }
+
     }
 }

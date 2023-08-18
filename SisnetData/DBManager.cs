@@ -1,63 +1,56 @@
 ﻿using Npgsql;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Data;
-using System.IO;
+using System.Data.Common;
+using System.Runtime.Remoting.Messaging;
 
 namespace SisnetData
 {
     public class DBManager
     {
-        // Fields
         public static DBManager _self;
+
         private NpgsqlConnection connection;
 
-        // Methods
+        public DBManager()
+        {
+        }
+
         internal List<ExportInfo> GetData(string tableName, DataTable dataToExport, string consecutivoField, string arhivoNameField, string archivoField)
         {
-            List<ExportInfo> list = new List<ExportInfo>();
-            string message = string.Empty;
+            List<ExportInfo> exportInfos = new List<ExportInfo>();
+            string empty = string.Empty;
             try
             {
-                List<string> list2 = new List<string>();
-                foreach (DataRow row in dataToExport.Rows)
+                try
                 {
-                    list2.Add("'" + row["Consecutivo"].ToString() + "'");
-                }
-                string str2 = string.Join(",", list2.ToArray());
-                this.connection.Open();
-                string[] textArray1 = new string[15];
-                textArray1[0] = "select cast(";
-                textArray1[1] = consecutivoField;
-                textArray1[2] = " as text) AS ";
-                textArray1[3] = consecutivoField;
-                textArray1[4] = ", ";
-                textArray1[5] = arhivoNameField;
-                textArray1[6] = ", cast((length(";
-                textArray1[7] = archivoField;
-                textArray1[8] = ") / 1048576.0) as text)|| ' MB' as filesize from ";
-                textArray1[9] = tableName;
-                textArray1[10] = " where cast(";
-                textArray1[11] = consecutivoField;
-                textArray1[12] = " as text) in(";
-                textArray1[13] = str2;
-                textArray1[14] = ") ;";
-                using (NpgsqlDataReader reader = new NpgsqlCommand(string.Concat(textArray1), this.connection).ExecuteReader())
-                {
-                    while (reader.Read())
+                    List<string> strs = new List<string>();
+                    foreach (DataRow row in dataToExport.Rows)
                     {
-                        ExportInfo info1 = new ExportInfo();
-                        info1.Consecutivo = reader.GetString(0);
-                        info1.ArchivoName = reader.GetString(1);
-                        info1.ArchivoLength = reader.GetString(2);
-                        ExportInfo item = info1;
-                        list.Add(item);
+                        strs.Add(string.Concat("'", row["Consecutivo"].ToString(), "'"));
+                    }
+                    string str = string.Join(",", strs.ToArray());
+                    this.connection.Open();
+                    empty = string.Concat(new string[] { "select cast(", consecutivoField, " as text) AS ", consecutivoField, ", ", arhivoNameField, ", cast((length(", archivoField, ") / 1048576.0) as text)|| ' MB' as filesize from ", tableName, " where cast(", consecutivoField, " as text) in(", str, ") ;" });
+                    using (NpgsqlDataReader npgsqlDataReader = (new NpgsqlCommand(empty, this.connection)).ExecuteReader())
+                    {
+                        while (npgsqlDataReader.Read())
+                        {
+                            exportInfos.Add(new ExportInfo()
+                            {
+                                Consecutivo = npgsqlDataReader.GetString(0),
+                                ArchivoName = npgsqlDataReader.GetString(1),
+                                ArchivoLength = npgsqlDataReader.GetString(2)
+                            });
+                        }
                     }
                 }
-            }
-            catch (Exception exception1)
-            {
-                throw new Exception(message, exception1);
+                catch (Exception exception)
+                {
+                    throw new Exception(empty, exception);
+                }
             }
             finally
             {
@@ -66,51 +59,37 @@ namespace SisnetData
                     this.connection.Close();
                 }
             }
-            return list;
+            return exportInfos;
         }
 
         internal List<ExportInfo> GetDataFile(string tableName, DataTable dataToExport, string consecutivoField, string arhivoNameField, string archivoField, string consecutivos)
         {
-            List<ExportInfo> list = new List<ExportInfo>();
-            string message = string.Empty;
+            List<ExportInfo> exportInfos = new List<ExportInfo>();
+            string empty = string.Empty;
             try
             {
-                this.connection.Open();
-                string[] textArray1 = new string[0x11];
-                textArray1[0] = "select cast(";
-                textArray1[1] = consecutivoField;
-                textArray1[2] = " as text) AS ";
-                textArray1[3] = consecutivoField;
-                textArray1[4] = ", ";
-                textArray1[5] = arhivoNameField;
-                textArray1[6] = ", cast((length(";
-                textArray1[7] = archivoField;
-                textArray1[8] = ") / 1048576.0) as text)|| ' MB' as filesize,";
-                textArray1[9] = archivoField;
-                textArray1[10] = " from ";
-                textArray1[11] = tableName;
-                textArray1[12] = " where cast(";
-                textArray1[13] = consecutivoField;
-                textArray1[14] = " as text) in(";
-                textArray1[15] = consecutivos;
-                textArray1[0x10] = ") ;";
-                using (NpgsqlDataReader reader = new NpgsqlCommand(string.Concat(textArray1), this.connection).ExecuteReader())
+                try
                 {
-                    while (reader.Read())
+                    this.connection.Open();
+                    empty = string.Concat(new string[] { "select cast(", consecutivoField, " as text) AS ", consecutivoField, ", ", arhivoNameField, ", cast((length(", archivoField, ") / 1048576.0) as text)|| ' MB' as filesize,", archivoField, " from ", tableName, " where cast(", consecutivoField, " as text) in(", consecutivos, ") ;" });
+                    using (NpgsqlDataReader npgsqlDataReader = (new NpgsqlCommand(empty, this.connection)).ExecuteReader())
                     {
-                        ExportInfo info1 = new ExportInfo();
-                        info1.Consecutivo = reader.GetString(0);
-                        info1.ArchivoName = reader.GetString(1);
-                        info1.ArchivoLength = reader.GetString(2);
-                        info1.ArchivoData = (byte[])reader[3];
-                        ExportInfo item = info1;
-                        list.Add(item);
+                        while (npgsqlDataReader.Read())
+                        {
+                            exportInfos.Add(new ExportInfo()
+                            {
+                                Consecutivo = npgsqlDataReader.GetString(0),
+                                ArchivoName = npgsqlDataReader.GetString(1),
+                                ArchivoLength = npgsqlDataReader.GetString(2),
+                                ArchivoData = (byte[])npgsqlDataReader[3]
+                            });
+                        }
                     }
                 }
-            }
-            catch (Exception exception1)
-            {
-                throw new Exception(message, exception1);
+                catch (Exception exception)
+                {
+                    throw new Exception(empty, exception);
+                }
             }
             finally
             {
@@ -119,12 +98,13 @@ namespace SisnetData
                     this.connection.Close();
                 }
             }
-            return list;
+            return exportInfos;
         }
 
         public List<ProcessInfo> GetDataFileToConvert(string tableName, string fldidvalidacionarchivos)
         {
-            List<ProcessInfo> list = new List<ProcessInfo>();
+            byte[] item;
+            List<ProcessInfo> processInfos = new List<ProcessInfo>();
 #if DEBUG
             ProcessInfo itemTest = new ProcessInfo();
             var path = "E:\\32-27-813.zip";
@@ -133,28 +113,41 @@ namespace SisnetData
 
             itemTest.fldidvalidacionarchivos = 1;
             itemTest.ArchivoData = byt;
-            list.Add(itemTest);
-            return list;
+            processInfos.Add(itemTest);
+            return processInfos;
 #endif
-            string message = string.Empty;
+            string empty = string.Empty;
             try
             {
-                this.connection.Open();
-                string[] textArray1 = new string[] { "select fldidvalidacionarchivos, archivo from ", tableName, " where  cast(fldidvalidacionarchivos as text) in(", fldidvalidacionarchivos, ") ;" };
-                using (NpgsqlDataReader reader = new NpgsqlCommand(string.Concat(textArray1), this.connection).ExecuteReader())
+                try
                 {
-                    while (reader.Read())
+                    this.connection.Open();
+                    empty = string.Concat(new string[] { "select fldidvalidacionarchivos, archivo from ", tableName, " where  cast(fldidvalidacionarchivos as text) in(", fldidvalidacionarchivos, ") ;" });
+                    using (NpgsqlDataReader npgsqlDataReader = (new NpgsqlCommand(empty, this.connection)).ExecuteReader())
                     {
-                        ProcessInfo item = new ProcessInfo();
-                        item.fldidvalidacionarchivos = reader.GetInt32(0);
-                        item.ArchivoData = reader.IsDBNull(1) ? null : ((byte[])reader[1]);
-                        list.Add(item);
+                        while (npgsqlDataReader.Read())
+                        {
+                            ProcessInfo processInfo = new ProcessInfo()
+                            {
+                                fldidvalidacionarchivos = npgsqlDataReader.GetInt32(0)
+                            };
+                            if (npgsqlDataReader.IsDBNull(1))
+                            {
+                                item = null;
+                            }
+                            else
+                            {
+                                item = (byte[])npgsqlDataReader[1];
+                            }
+                            processInfo.ArchivoData = item;
+                            processInfos.Add(processInfo);
+                        }
                     }
                 }
-            }
-            catch (Exception exception1)
-            {
-                throw new Exception(message, exception1);
+                catch (Exception exception)
+                {
+                    throw new Exception(empty, exception);
+                }
             }
             finally
             {
@@ -163,33 +156,38 @@ namespace SisnetData
                     this.connection.Close();
                 }
             }
-            return list;
+            return processInfos;
         }
 
         public static DBManager GetDBManager()
         {
             if (DBManager._self == null)
+            {
                 DBManager._self = new DBManager();
+            }
             return DBManager._self;
         }
 
         public Dictionary<string, string> GetFields(string tableName)
         {
-            Dictionary<string, string> dictionary = new Dictionary<string, string>();
+            Dictionary<string, string> strs = new Dictionary<string, string>();
             try
             {
-                this.connection.Open();
-                using (NpgsqlDataReader reader = new NpgsqlCommand("select column_name, data_type from information_schema.columns where table_name = '" + tableName + "' order by column_name;", this.connection).ExecuteReader())
+                try
                 {
-                    while (reader.Read())
+                    this.connection.Open();
+                    using (NpgsqlDataReader npgsqlDataReader = (new NpgsqlCommand(string.Concat("select column_name, data_type from information_schema.columns where table_name = '", tableName, "' order by column_name;"), this.connection)).ExecuteReader())
                     {
-                        dictionary.Add(reader.GetString(0), reader.GetString(1));
+                        while (npgsqlDataReader.Read())
+                        {
+                            strs.Add(npgsqlDataReader.GetString(0), npgsqlDataReader.GetString(1));
+                        }
                     }
                 }
-            }
-            catch (Exception exception1)
-            {
-                throw exception1;
+                catch (Exception exception)
+                {
+                    throw exception;
+                }
             }
             finally
             {
@@ -198,31 +196,22 @@ namespace SisnetData
                     this.connection.Close();
                 }
             }
-            return dictionary;
-        }
-        private bool log;
-
-        private string GetCurrentDirectory() => AppDomain.CurrentDomain.BaseDirectory;
-
-        private void WriteLog(string text, Exception ex = null)
-        {
-            string str = this.GetCurrentDirectory() + "log.txt";
-            string path1 = str;
-            DateTime now = DateTime.Now;
-            string contents1 = now.ToString("yyyy-MM-dd HH:mm:ss") + " " + text + "\r\n";
-            File.AppendAllText(path1, contents1);
-            if (ex == null)
-                return;
-            string path2 = str;
-            now = DateTime.Now;
-            string contents2 = now.ToString("yyyy-MM-dd HH:mm:ss") + " " + ex.StackTrace + "\r\n";
-            File.AppendAllText(path2, contents2);
+            return strs;
         }
 
         public List<ProcessInfo> GetPendingFiles(string tableName)
         {
-            List<ProcessInfo> list = new List<ProcessInfo>();
-            string str = string.Empty;
+            string str;
+            string str1;
+            string str2;
+            string str3;
+            string upper;
+            string str4;
+            string str5;
+            string str6;
+            string str7;
+            List<ProcessInfo> processInfos = new List<ProcessInfo>();
+            string empty = string.Empty;
 #if DEBUG
             ProcessInfo itemTest = new ProcessInfo
             {
@@ -241,50 +230,47 @@ namespace SisnetData
                 etiqueta4 = null,
                 procesarexcel = "si"
             };
-            list.Add(itemTest);
-            return list;
+            processInfos.Add(itemTest);
+            return processInfos;
 
 #endif
             try
             {
-                this.connection.Open();
-                using (NpgsqlDataReader reader = new NpgsqlCommand("SELECT fldidvalidacionarchivos, fecha, tipo, numeroidentificacion, nombrearchivoarchivo, etiqueta, accion, calidadpdf, estado, etiqueta1, etiqueta2, etiqueta3, etiqueta4, procesarexcel FROM " + tableName + " WHERE estado='PE' ;", this.connection).ExecuteReader())
+                try
                 {
-                    while (reader.Read())
+                    this.connection.Open();
+                    empty = string.Concat("SELECT fldidvalidacionarchivos, fecha, tipo, numeroidentificacion, nombrearchivoarchivo, etiqueta, accion, calidadpdf, estado, etiqueta1, etiqueta2, etiqueta3, etiqueta4, procesarexcel FROM ", tableName, " WHERE estado='PE' ;");
+                    using (NpgsqlDataReader npgsqlDataReader = (new NpgsqlCommand(empty, this.connection)).ExecuteReader())
                     {
-                        ProcessInfo item = new ProcessInfo
+                        while (npgsqlDataReader.Read())
                         {
-                            fldidvalidacionarchivos = reader.GetInt32(0),
-                            fecha = !reader.IsDBNull(1) ? reader.GetDateTime(1) : DateTime.MinValue,
-                            tipo = !reader.IsDBNull(2) ? reader.GetString(2) : null,
-                            numeroidentificacion = !reader.IsDBNull(3) ? reader.GetString(3) : null,
-                            nombrearchivoarchivo = !reader.IsDBNull(4) ? reader.GetString(4) : null,
-                            etiqueta = !reader.IsDBNull(5) ? reader.GetString(5) : null,
-                            accion = !reader.IsDBNull(6) ? reader.GetString(6).ToUpper() : null,
-                            calidadpdf = !reader.IsDBNull(7) ? reader.GetDecimal(7) : 0M,
-                            estado = reader.GetString(8),
-                            etiqueta1 = !reader.IsDBNull(9) ? reader.GetString(9) : null,
-                            etiqueta2 = !reader.IsDBNull(10) ? reader.GetString(10) : null,
-                            etiqueta3 = !reader.IsDBNull(11) ? reader.GetString(11) : null,
-                            etiqueta4 = !reader.IsDBNull(12) ? reader.GetString(12) : null,
-                            procesarexcel = !reader.IsDBNull(13) ? reader.GetString(13).ToLower() : "si"
-                        };
-                        list.Add(item);
+                            ProcessInfo processInfo = new ProcessInfo()
+                            {
+                                fldidvalidacionarchivos = npgsqlDataReader.GetInt32(0),
+                                fecha = (!npgsqlDataReader.IsDBNull(1) ? npgsqlDataReader.GetDateTime(1) : DateTime.MinValue),
+                                tipo = !npgsqlDataReader.IsDBNull(2) ? npgsqlDataReader.GetString(2) : null,
+                                numeroidentificacion = !npgsqlDataReader.IsDBNull(3) ? npgsqlDataReader.GetString(3) : null,
+                                nombrearchivoarchivo = !npgsqlDataReader.IsDBNull(4) ? npgsqlDataReader.GetString(4) : "",
+                                etiqueta = !npgsqlDataReader.IsDBNull(5) ? npgsqlDataReader.GetString(5) : null,
+                                accion = !npgsqlDataReader.IsDBNull(6) ? npgsqlDataReader.GetString(6).ToUpper() : null,
+                                calidadpdf = !npgsqlDataReader.IsDBNull(7) ? npgsqlDataReader.GetDecimal(7) : 0M,
+                                estado = npgsqlDataReader.GetString(8),
+                                etiqueta1 = !npgsqlDataReader.IsDBNull(9) ? npgsqlDataReader.GetString(9) : null,
+                                etiqueta2 = !npgsqlDataReader.IsDBNull(10) ? npgsqlDataReader.GetString(10) : null,
+                                etiqueta3 = !npgsqlDataReader.IsDBNull(11) ? npgsqlDataReader.GetString(11) : null,
+                                etiqueta4 = !npgsqlDataReader.IsDBNull(12) ? npgsqlDataReader.GetString(12) : null,
+                                procesarexcel = !npgsqlDataReader.IsDBNull(13) ? npgsqlDataReader.GetString(13).ToLower() : "si"
+                            };
+                           
+                            processInfos.Add(processInfo);
+                        }
                     }
                 }
-
-                if (list.Count == 0)
+                catch (Exception exception1)
                 {
-                    this.WriteLog("No hay archivos con estado PE");
+                    Exception exception = exception1;
+                    throw new Exception(string.Concat(exception.Message, "\r\n", empty), exception);
                 }
-                else
-                {
-                    this.WriteLog("Se procesan " + list.Count + " archivos con estado PE");
-                }
-            }
-            catch (Exception exception)
-            {
-                throw new Exception(exception.Message + "\r\n" + str, exception);
             }
             finally
             {
@@ -293,26 +279,29 @@ namespace SisnetData
                     this.connection.Close();
                 }
             }
-            return list;
+            return processInfos;
         }
 
         public List<string> GetTables()
         {
-            List<string> list = new List<string>();
+            List<string> strs = new List<string>();
             try
             {
-                this.connection.Open();
-                using (NpgsqlDataReader reader = new NpgsqlCommand("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' order by table_name", this.connection).ExecuteReader())
+                try
                 {
-                    while (reader.Read())
+                    this.connection.Open();
+                    using (NpgsqlDataReader npgsqlDataReader = (new NpgsqlCommand("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' order by table_name", this.connection)).ExecuteReader())
                     {
-                        list.Add(reader.GetString(0));
+                        while (npgsqlDataReader.Read())
+                        {
+                            strs.Add(npgsqlDataReader.GetString(0));
+                        }
                     }
                 }
-            }
-            catch (Exception exception1)
-            {
-                throw exception1;
+                catch (Exception exception)
+                {
+                    throw exception;
+                }
             }
             finally
             {
@@ -321,28 +310,32 @@ namespace SisnetData
                     this.connection.Close();
                 }
             }
-            return list;
+            return strs;
         }
 
         public void Insert(string fileName, byte[] ImgByteA)
         {
-            NpgsqlCommand command1 = new NpgsqlCommand();
-            command1.CommandText = "insert into tablaarchivo (serial, imgname, img) VALUES ('123', '" + fileName + "', @Image)";
-            command1.Connection = this.connection;
-            command1.Parameters.Add(new NpgsqlParameter("Image", ImgByteA));
+            NpgsqlCommand npgsqlCommand = new NpgsqlCommand()
+            {
+                CommandText = string.Concat("insert into tablaarchivo (serial, imgname, img) VALUES ('123', '", fileName, "', @Image)"),
+                Connection = this.connection
+            };
+            npgsqlCommand.Parameters.Add(new NpgsqlParameter("Image", ImgByteA));
             this.connection.Open();
-            command1.ExecuteNonQuery();
+            npgsqlCommand.ExecuteNonQuery();
             this.connection.Close();
         }
 
         public void InsertValidacionarchivos(string fileName, byte[] ImgByteA)
         {
-            NpgsqlCommand command1 = new NpgsqlCommand();
-            command1.CommandText = "insert into Validacionarchivos (fldidvalidacionarchivos, ESTADO, nombrearchivoarchivo, archivo) VALUES (6, 'PE', '" + fileName + "', @Image)";
-            command1.Connection =this.connection;
-            command1.Parameters.Add(new NpgsqlParameter("Image", ImgByteA));
+            NpgsqlCommand npgsqlCommand = new NpgsqlCommand()
+            {
+                CommandText = string.Concat("insert into Validacionarchivos (fldidvalidacionarchivos, ESTADO, nombrearchivoarchivo, archivo) VALUES (6, 'PE', '", fileName, "', @Image)"),
+                Connection = this.connection
+            };
+            npgsqlCommand.Parameters.Add(new NpgsqlParameter("Image", ImgByteA));
             this.connection.Open();
-            command1.ExecuteNonQuery();
+            npgsqlCommand.ExecuteNonQuery();
             this.connection.Close();
         }
 
@@ -350,42 +343,31 @@ namespace SisnetData
         {
             try
             {
-                string[] textArray1 = new string[] { "Server=", ip, ";Port=5432;User ID=", user, ";Password=", pwd, ";Database=", db };
-                string str = string.Concat(textArray1);
-                this.connection = new NpgsqlConnection(str);
+                this.connection = new NpgsqlConnection(string.Concat(new string[] { "Server=", ip, ";Port=5432;User ID=", user, ";Password=", pwd, ";Database=", db }));
                 this.connection.Open();
                 this.connection.Close();
             }
-            catch (Exception exception1)
+            catch (Exception exception)
             {
-                throw exception1;
+                throw exception;
             }
         }
 
         public void UpdateValidacionarchivos(ProcessInfo processInfo)
         {
-            NpgsqlCommand command = new NpgsqlCommand();
-            string[] textArray1 = new string[12];
-            textArray1[0] = "update validacionarchivos set estado = '";
-            textArray1[1] = processInfo.estado;
-            textArray1[2] = "',nombrearchivoarchivoresultante = '";
-            textArray1[3] = processInfo.nombrearchivoarchivoresultante;
-            textArray1[4] = "',extensionarchivoresultant = '";
-            textArray1[5] = processInfo.extensionarchivoresultant;
-            textArray1[6] = "',extensionarchivo = '";
-            textArray1[7] = processInfo.extensionarchivo;
-            textArray1[8] = "',mensajeerror = '";
-            textArray1[9] = processInfo.mensajeerror;
-            textArray1[10] = "',archivoresultante = @Archivoresultante ";
-            textArray1[11] = $"WHERE fldidvalidacionarchivos = '{processInfo.fldidvalidacionarchivos}';";
-            command.CommandText = string.Concat(textArray1);
-            command.Connection =this.connection;
-            processInfo.archivoresultante = new byte[0];
-            command.Parameters.Add(new NpgsqlParameter("Archivoresultante", processInfo.archivoresultante));
+            NpgsqlCommand npgsqlCommand = new NpgsqlCommand()
+            {
+                CommandText = string.Concat(new string[] { "update validacionarchivos set estado = '", processInfo.estado, "',nombrearchivoarchivoresultante = '", processInfo.nombrearchivoarchivoresultante, "',extensionarchivoresultant = '", processInfo.extensionarchivoresultant, "',extensionarchivo = '", processInfo.extensionarchivo, "',mensajeerror = '", processInfo.mensajeerror, "',archivoresultante = @Archivoresultante ", string.Format("WHERE fldidvalidacionarchivos = '{0}';", processInfo.fldidvalidacionarchivos) }),
+                Connection = this.connection
+            };
+            if (processInfo.archivoresultante == null)
+            {
+                processInfo.archivoresultante = new byte[0];
+            }
+            npgsqlCommand.Parameters.Add(new NpgsqlParameter("Archivoresultante", processInfo.archivoresultante));
             this.connection.Open();
-            command.ExecuteNonQuery();
+            npgsqlCommand.ExecuteNonQuery();
             this.connection.Close();
         }
     }
-
 }
