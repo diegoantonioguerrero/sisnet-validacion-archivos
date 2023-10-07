@@ -26,7 +26,7 @@ namespace SisnetServiceConversor
 
         public FileConversorService()
         {
-            this.InitializeComponent();
+            //this.InitializeComponent();
             this.ff = new FileConversor(base.ServiceHandle);
             this.SecondsToReadDatabase = int.Parse(ConfigurationManager.AppSettings["secondsToReadDatabase"]);
         }

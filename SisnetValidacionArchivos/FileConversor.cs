@@ -129,7 +129,7 @@ namespace SisnetServiceConversor
                 {
                     this.ClearFolder();
                     List<string> list1 = list.Take<string>(50).ToList<string>();
-                    string str1 = string.Join(",", list1);
+                    string str1 = string.Join(",", list1.ToArray());
                     foreach (ProcessInfo dataFileToConvert in dBManager.GetDataFileToConvert(this.tableToValidate.ToString(), str1))
                     {
                         if (!this.StopSignal)
@@ -263,7 +263,7 @@ namespace SisnetServiceConversor
                                     stopwatch.Stop();
                                     elapsed = stopwatch.Elapsed;
                                     this.WriteLog(string.Format("Archivo base Time: {0}h {1}m {2}s {3}ms", new object[] { elapsed.Hours, elapsed.Minutes, elapsed.Seconds, elapsed.Milliseconds }), null);
-                                    stopwatch.Restart();
+                                    stopwatch.Reset();
                                     str = string.Concat(this.WorkingPath, "\\", fileInfo.Name);
                                     int pDF2 = 0;
                                     if (!archivoData.nombrearchivoarchivo.EndsWith(".pdf") && archivoData.ProcesarExcel)
@@ -271,20 +271,20 @@ namespace SisnetServiceConversor
                                         pDF2 = this.ConvertToPDF(str, archivoData, null);
                                         elapsed = stopwatch.Elapsed;
                                         this.WriteLog(string.Format("ConvertToPDF Time: {0}h {1}m {2}s {3}ms", new object[] { elapsed.Hours, elapsed.Minutes, elapsed.Seconds, elapsed.Milliseconds }), null);
-                                        stopwatch.Restart();
+                                        stopwatch.Reset();
                                     }
                                     if (pDF2 == 0)
                                     {
                                         pDF2 = this.ConvertToPDF(str, archivoData, "waterMark");
                                         elapsed = stopwatch.Elapsed;
                                         this.WriteLog(string.Format("marca de agua Time: {0}h {1}m {2}s {3}ms", new object[] { elapsed.Hours, elapsed.Minutes, elapsed.Seconds, elapsed.Milliseconds }), null);
-                                        stopwatch.Restart();
+                                        stopwatch.Reset();
                                         if (pDF2 == 0)
                                         {
                                             pDF2 = this.AddTextMark(archivoData, str);
                                             elapsed = stopwatch.Elapsed;
                                             this.WriteLog(string.Format("AddTextMark Time: {0}h {1}m {2}s {3}ms", new object[] { elapsed.Hours, elapsed.Minutes, elapsed.Seconds, elapsed.Milliseconds }), null);
-                                            stopwatch.Restart();
+                                            stopwatch.Reset();
                                             if (pDF2 == 0)
                                             {
                                                 archivoData.archivoresultante = this.GetFileData(archivoData);
@@ -292,7 +292,7 @@ namespace SisnetServiceConversor
                                                 dBManager.UpdateValidacionarchivos(archivoData);
                                                 elapsed = stopwatch.Elapsed;
                                                 this.WriteLog(string.Format("Save DB Time: {0}h {1}m {2}s {3}ms", new object[] { elapsed.Hours, elapsed.Minutes, elapsed.Seconds, elapsed.Milliseconds }), null);
-                                                stopwatch.Restart();
+                                                stopwatch.Reset();
                                             }
                                             archivoData.ArchivoData = null;
                                             archivoData.archivoresultante = null;
@@ -658,7 +658,7 @@ namespace SisnetServiceConversor
 
         private void ClearFolder()
         {
-            IEnumerable<FileInfo> fileInfos = (new DirectoryInfo(this.WorkingPath)).EnumerateFiles("*.*");
+            IEnumerable<FileInfo> fileInfos = (new DirectoryInfo(this.WorkingPath)).GetFiles("*.*");
             if (fileInfos.Any<FileInfo>())
             {
                 foreach (FileInfo fileInfo in fileInfos)
