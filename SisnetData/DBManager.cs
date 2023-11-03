@@ -369,5 +369,140 @@ namespace SisnetData
             npgsqlCommand.ExecuteNonQuery();
             this.connection.Close();
         }
+
+        public void RecreateTable(string table)
+        {
+            List<string> indices = GetIndices(table);
+            List<string> restr = GetRestricciones(table);
+
+            String command = @"-- Paso 1: Copiar la tabla junto con índices y restricciones a una nueva tabla
+CREATE TABLE {0}_nueva AS
+  SELECT * FROM {0};";
+
+            command = String.Format(command, table);
+            NpgsqlCommand npgsqlCommand = new NpgsqlCommand()
+            {
+                CommandText = command,
+                Connection = this.connection
+            };
+
+           
+            //npgsqlCommand.Parameters.Add(new NpgsqlParameter("Archivoresultante", processInfo.archivoresultante));
+            this.connection.Open();
+            npgsqlCommand.ExecuteNonQuery();
+            this.connection.Close();
+
+            this.CrearIndices(table, indices);
+
+
+
+            command = @"
+
+-- Paso 2: Eliminar la tabla original
+DROP TABLE {0};
+
+-- Paso 3: Renombrar la nueva tabla con el nombre de la original
+ALTER TABLE {0}_nueva RENAME TO {0};";
+
+            npgsqlCommand = new NpgsqlCommand()
+            {
+                CommandText = command,
+                Connection = this.connection
+            };
+
+            //npgsqlCommand.Parameters.Add(new NpgsqlParameter("Archivoresultante", processInfo.archivoresultante));
+            //this.connection.Open();
+            //npgsqlCommand.ExecuteNonQuery();
+            //this.connection.Close();
+
+
+        }
+
+        private void CrearIndices(string table, List<string> indices)
+        {
+
+            foreach(String indice in indices)
+            {
+                String command = String.Format(@"EXECUTE 'CREATE INDEX {1} ' ON {0}_nueva USING btree (' || (SELECT string_agg(column_name, ', ') FROM information_schema.index_columns WHERE index_name = {1}) || ');';", table, indice);
+                NpgsqlCommand npgsqlCommand = new NpgsqlCommand()
+                {
+                    CommandText = command,
+                    Connection = this.connection
+                };
+
+
+                //npgsqlCommand.Parameters.Add(new NpgsqlParameter("Archivoresultante", processInfo.archivoresultante));
+                this.connection.Open();
+                npgsqlCommand.ExecuteNonQuery();
+                this.connection.Close();
+            }
+          
+        }
+
+        public List<string> GetIndices(String table)
+        {
+            List<string> strs = new List<string>();
+            try
+            {
+                try
+                {
+                    this.connection.Open();
+                    using (NpgsqlDataReader npgsqlDataReader = (new NpgsqlCommand(
+                        String.Format("SELECT indexname FROM pg_indexes WHERE tablename = '{0}'", table), this.connection)).ExecuteReader())
+                    {
+                        while (npgsqlDataReader.Read())
+                        {
+                            strs.Add(npgsqlDataReader.GetString(0));
+                        }
+                    }
+                }
+                catch (Exception exception)
+                {
+                    throw exception;
+                }
+            }
+            finally
+            {
+                if (this.connection.State == ConnectionState.Open)
+                {
+                    this.connection.Close();
+                }
+            }
+            return strs;
+        }
+
+        public List<string> GetRestricciones(String table)
+        {
+            List<string> strs = new List<string>();
+            try
+            {
+                try
+                {
+                    this.connection.Open();
+                    using (NpgsqlDataReader npgsqlDataReader = (new NpgsqlCommand(
+                        String.Format("SELECT conname FROM pg_constraint WHERE confrelid = '{0}'::regclass", table), this.connection)).ExecuteReader())
+                    {
+                        while (npgsqlDataReader.Read())
+                        {
+                            strs.Add(npgsqlDataReader.GetString(0));
+                        }
+                    }
+                }
+                catch (Exception exception)
+                {
+                    throw exception;
+                }
+            }
+            finally
+            {
+                if (this.connection.State == ConnectionState.Open)
+                {
+                    this.connection.Close();
+                }
+            }
+            return strs;
+        }
+        //
+        //EXECUTE 'ALTER TABLE {0}_nueva ADD CONSTRAINT ' || r.conname || ' ' || pg_get_constraintdef(r.oid) || ';'; 
     }
 }

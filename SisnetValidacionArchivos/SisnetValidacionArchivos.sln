@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SisnetValidacionArchivos", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SisnetData", "..\SisnetData\SisnetData.csproj", "{AA1723BE-AD80-4100-A773-808257A03869}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VaccumPersonalizado", "..\VaccumPersonalizado\VaccumPersonalizado.csproj", "{7ABBA655-A492-44D2-89E8-2D692A545984}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{AA1723BE-AD80-4100-A773-808257A03869}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AA1723BE-AD80-4100-A773-808257A03869}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AA1723BE-AD80-4100-A773-808257A03869}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7ABBA655-A492-44D2-89E8-2D692A545984}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7ABBA655-A492-44D2-89E8-2D692A545984}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7ABBA655-A492-44D2-89E8-2D692A545984}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7ABBA655-A492-44D2-89E8-2D692A545984}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
