@@ -18,7 +18,7 @@ namespace SisnetData
         {
         }
 
-        internal List<ExportInfo> GetData(string tableName, DataTable dataToExport, string consecutivoField, string arhivoNameField, string archivoField)
+        public List<ExportInfo> GetData(string tableName, DataTable dataToExport, string consecutivoField, string arhivoNameField, string archivoField)
         {
             List<ExportInfo> exportInfos = new List<ExportInfo>();
             string empty = string.Empty;
@@ -62,7 +62,7 @@ namespace SisnetData
             return exportInfos;
         }
 
-        internal List<ExportInfo> GetDataFile(string tableName, DataTable dataToExport, string consecutivoField, string arhivoNameField, string archivoField, string consecutivos)
+        public List<ExportInfo> GetDataFile(string tableName, DataTable dataToExport, string consecutivoField, string arhivoNameField, string archivoField, string consecutivos)
         {
             List<ExportInfo> exportInfos = new List<ExportInfo>();
             string empty = string.Empty;
