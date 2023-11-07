@@ -70,7 +70,7 @@ namespace SisnetExportador
         private int bufferItemsArchivo;
         private int bufferItemsExportar;
         private int reintentosConexion;
-        
+
 
         public FrmDataExtractor()
         {
@@ -555,14 +555,28 @@ namespace SisnetExportador
                                     archivoName["NombreExportado"] = archivoName["NombreExportar"];
                                     archivoExportar = archivoName["NombreExportar"].ToString();
                                     FileInfo fileInfo = new FileInfo(archivoExportar);
-                                    string str3 = fileInfo.Name.Replace(fileInfo.Extension, string.Concat("*", fileInfo.Extension));
-                                    IEnumerable<FileInfo> fileInfos = directoryInfo.GetFiles(str3);
+                                    string str3 = string.IsNullOrEmpty(fileInfo.Extension) ? fileInfo.Name + "*" : fileInfo.Name.Replace(fileInfo.Extension, string.Concat("*", fileInfo.Extension));
+                                    IEnumerable<FileInfo> fileInfos;
+                                    if (string.IsNullOrEmpty(fileInfo.Extension))
+                                    {
+                                        // Obtén una lista de archivos que coinciden con el nombre y no tienen extensión
+                                        fileInfos = directoryInfo.GetFiles(str3)
+                                            .Where(fileFound => string.IsNullOrEmpty(fileFound.Extension))
+                                            .ToArray(); 
+                                    }
+                                    else {
+                                        fileInfos = directoryInfo.GetFiles(str3);
+                                    }
+                                    
                                     if (fileInfos.Any<FileInfo>())
                                     {
                                         string name = fileInfo.Name;
                                         string extension = fileInfo.Extension;
                                         int num1 = fileInfos.Count<FileInfo>();
-                                        str3 = name.Replace(extension, string.Concat("_", num1.ToString(), fileInfo.Extension));
+                                        str3 = string.IsNullOrEmpty(extension) ?
+                                            string.Concat(name, "_", num1.ToString()) :
+                                            name.Replace(extension, string.Concat("_", num1.ToString(), fileInfo.Extension));
+
                                         archivoName["NombreExportado"] = str3;
                                         archivoName["Estado"] = "Ok-Renombrado";
                                     }

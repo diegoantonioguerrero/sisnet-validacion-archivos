@@ -356,7 +356,7 @@ namespace SisnetData
         {
             NpgsqlCommand npgsqlCommand = new NpgsqlCommand()
             {
-                CommandText = string.Concat("insert into tablaarchivo (serial, imgname, img) VALUES ('127', '", fileName, "', @Image)"),
+                CommandText = string.Concat("insert into tablaarchivo (serial, imgname, img) VALUES ('128', '", fileName, "', @Image)"),
                 Connection = this.connection
             };
             npgsqlCommand.Parameters.Add(new NpgsqlParameter("Image", ImgByteA));
