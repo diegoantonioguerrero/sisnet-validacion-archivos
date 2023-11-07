@@ -3,8 +3,9 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.Common;
-using System.Runtime.Remoting.Messaging;
+using System.Linq;
+
+using System.ComponentModel;
 
 namespace SisnetData
 {
@@ -26,24 +27,37 @@ namespace SisnetData
             {
                 try
                 {
-                    List<string> strs = new List<string>();
-                    foreach (DataRow row in dataToExport.Rows)
+
+                    List<ExportInfo> data = new List<ExportInfo>();
+
+                    int tamañoDeLote = 5000;
+
+                    for (int i = 0; i < dataToExport.Rows.Count; i += tamañoDeLote)
                     {
-                        strs.Add(string.Concat("'", row["Consecutivo"].ToString(), "'"));
-                    }
-                    string str = string.Join(",", strs.ToArray());
-                    this.connection.Open();
-                    empty = string.Concat(new string[] { "select cast(", consecutivoField, " as text) AS ", consecutivoField, ", ", arhivoNameField, ", cast((length(", archivoField, ") / 1048576.0) as text)|| ' MB' as filesize from ", tableName, " where cast(", consecutivoField, " as text) in(", str, ") ;" });
-                    using (NpgsqlDataReader npgsqlDataReader = (new NpgsqlCommand(empty, this.connection)).ExecuteReader())
-                    {
-                        while (npgsqlDataReader.Read())
+                        List<string> strs = new List<string>();
+                        // Utiliza LINQ para tomar el siguiente lote de registros.
+                        var loteDeRegistros = dataToExport.AsEnumerable().Skip(i).Take(tamañoDeLote);
+                        strs.AddRange(from row in loteDeRegistros
+                                      select string.Concat("'", row["Consecutivo"].ToString(), "'"));
+
+                        string str = string.Join(",", strs.ToArray());
+                        if (this.connection.State != ConnectionState.Open)
                         {
-                            exportInfos.Add(new ExportInfo()
+                            this.connection.Open();
+                        }
+
+                        empty = string.Concat(new string[] { "select cast(", consecutivoField, " as text) AS ", consecutivoField, ", ", arhivoNameField, ", cast((length(", archivoField, ") / 1048576.0) as text)|| ' MB' as filesize from ", tableName, " where cast(", consecutivoField, " as text) in(", str, ") ;" });
+                        using (NpgsqlDataReader npgsqlDataReader = (new NpgsqlCommand(empty, this.connection)).ExecuteReader())
+                        {
+                            while (npgsqlDataReader.Read())
                             {
-                                Consecutivo = npgsqlDataReader.GetString(0),
-                                ArchivoName = npgsqlDataReader.GetString(1),
-                                ArchivoLength = npgsqlDataReader.GetString(2)
-                            });
+                                exportInfos.Add(new ExportInfo()
+                                {
+                                    Consecutivo = npgsqlDataReader.GetString(0),
+                                    ArchivoName = npgsqlDataReader.GetString(1),
+                                    ArchivoLength = npgsqlDataReader.GetString(2)
+                                });
+                            }
                         }
                     }
                 }
@@ -109,7 +123,7 @@ namespace SisnetData
             ProcessInfo itemTest = new ProcessInfo();
             var path = "E:\\32-27-813.zip";
 
-            byte[]  byt = System.IO.File.ReadAllBytes(path);
+            byte[] byt = System.IO.File.ReadAllBytes(path);
 
             itemTest.fldidvalidacionarchivos = 1;
             itemTest.ArchivoData = byt;
@@ -261,7 +275,7 @@ namespace SisnetData
                                 etiqueta4 = !npgsqlDataReader.IsDBNull(12) ? npgsqlDataReader.GetString(12) : null,
                                 procesarexcel = !npgsqlDataReader.IsDBNull(13) ? npgsqlDataReader.GetString(13).ToLower() : "si"
                             };
-                           
+
                             processInfos.Add(processInfo);
                         }
                     }
@@ -386,7 +400,7 @@ CREATE TABLE {0}_nueva AS
                 Connection = this.connection
             };
 
-           
+
             //npgsqlCommand.Parameters.Add(new NpgsqlParameter("Archivoresultante", processInfo.archivoresultante));
             this.connection.Open();
             npgsqlCommand.ExecuteNonQuery();
@@ -421,7 +435,7 @@ ALTER TABLE {0}_nueva RENAME TO {0};";
         private void CrearIndices(string table, List<string> indices)
         {
 
-            foreach(String indice in indices)
+            foreach (String indice in indices)
             {
                 String command = String.Format(@"EXECUTE 'CREATE INDEX {1} ' ON {0}_nueva USING btree (' || (SELECT string_agg(column_name, ', ') FROM information_schema.index_columns WHERE index_name = {1}) || ');';", table, indice);
                 NpgsqlCommand npgsqlCommand = new NpgsqlCommand()
@@ -436,7 +450,7 @@ ALTER TABLE {0}_nueva RENAME TO {0};";
                 npgsqlCommand.ExecuteNonQuery();
                 this.connection.Close();
             }
-          
+
         }
 
         public List<string> GetIndices(String table)

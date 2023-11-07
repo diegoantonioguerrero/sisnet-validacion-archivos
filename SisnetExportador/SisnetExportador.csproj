@@ -97,10 +97,10 @@
   <ItemGroup>
     <None Include="sika.png" />
   </ItemGroup>
+  <ItemGroup />
   <ItemGroup>
-    <Folder Include="Resources\" />
-  </ItemGroup>
-  <ItemGroup>
+    <None Include="Resources\Image1.bmp" />
+    <None Include="Resources\pictureBox1.Image.bmp" />
     <Content Include="sika.ico" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

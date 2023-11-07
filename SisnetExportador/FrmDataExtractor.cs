@@ -7,21 +7,7 @@ using System.Data;
 using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Windows.Forms;
-/*
-
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.IO;
-using System.Windows.Forms;
-using System;
-using System.Collections;
-using SisnetData;
-using System.Linq;
-*/
 
 namespace SisnetExportador
 {
@@ -264,7 +250,7 @@ namespace SisnetExportador
             base.PerformLayout();
         }
 
-        #region
+        #region Methods
         private void bgw_DoWork(object sender, DoWorkEventArgs e)
         {
             this.ExportData(e);
@@ -292,7 +278,11 @@ namespace SisnetExportador
             }
             if (e.Error != null)
             {
-                MessageBox.Show("There was an error running the process. The thread aborted", "Sisnet", MessageBoxButtons.OK, MessageBoxIcon.Hand);
+                String message = e.Error.Message;
+                message += e.Error.InnerException != null ? "\r\n[" + e.Error.InnerException.Message + "]" : string.Empty;
+                message += e.Error.InnerException != null ? "\r\n" + e.Error.InnerException.StackTrace + "\r\n\r\n" : string.Empty;
+                message += "\r\n" + e.Error.StackTrace;
+                MessageBox.Show("Error ejecutando la exporación.\r\n" + message, "Sisnet", MessageBoxButtons.OK, MessageBoxIcon.Hand);
                 return;
             }
             foreach (DataGridViewRow row in (IEnumerable)this.dataGridView1.Rows)
@@ -361,7 +351,7 @@ namespace SisnetExportador
 
         private void button1_Click(object sender, EventArgs e)
         {
-            using (FileStream fileStream = new FileStream("D:\\Personal\\impuestoliquidacion.png", FileMode.Open, FileAccess.Read))
+            using (FileStream fileStream = new FileStream("E:\\Personal\\impuestoliquidacion.png", FileMode.Open, FileAccess.Read))
             {
                 using (BinaryReader binaryReader = new BinaryReader(new BufferedStream(fileStream)))
                 {
@@ -511,6 +501,7 @@ namespace SisnetExportador
             }
             DBManager dBManager = DBManager.GetDBManager();
             List<string> strs = new List<string>();
+            String archivoExportar = string.Empty;
             DataView dataViews = this.dataToExport.AsDataView();
             dataViews.RowFilter = "Estado like 'Ok%'";
             DataView dataViews1 = this.dataToExport.AsDataView();
@@ -536,63 +527,77 @@ namespace SisnetExportador
                 string str2 = string.Join(",", list1.ToArray());
                 foreach (ExportInfo dataFile in dBManager.GetDataFile(this.valueTable.ToString(), this.dataToExport, this.valueConsecutivo, this.valueArchivoName, this.valueArchivo, str2))
                 {
-                    if (!this.bgw.CancellationPending)
+                    try
                     {
-                        dataViews1.RowFilter = string.Concat("Consecutivo = '", dataFile.Consecutivo, "'");
-                        DataRow archivoName = (
-                            from DataRowView drv in dataViews1
-                            select drv.Row).First<DataRow>();
-                        archivoName["NombreOriginal"] = dataFile.ArchivoName;
-                        archivoName["Tamaño"] = dataFile.ArchivoLength;
-                        archivoName["Estado"] = "Ok";
-                        if (dataFile.ArchivoData != null)
+                        if (!this.bgw.CancellationPending)
                         {
-                            using (MemoryStream memoryStream = new MemoryStream(dataFile.ArchivoData))
+                            dataViews1.RowFilter = string.Concat("Consecutivo = '", dataFile.Consecutivo, "'");
+                            DataRow archivoName = (
+                                from DataRowView drv in dataViews1
+                                select drv.Row).First<DataRow>();
+                            archivoName["NombreOriginal"] = dataFile.ArchivoName;
+                            archivoName["Tamaño"] = dataFile.ArchivoLength;
+                            archivoName["Estado"] = "Ok";
+                            if (dataFile.ArchivoData != null)
                             {
-                                archivoName["NombreExportado"] = archivoName["NombreExportar"];
-                                FileInfo fileInfo = new FileInfo(archivoName["NombreExportar"].ToString());
-                                string str3 = fileInfo.Name.Replace(fileInfo.Extension, string.Concat("*", fileInfo.Extension));
-                                IEnumerable<FileInfo> fileInfos = directoryInfo.GetFiles(str3);
-                                if (fileInfos.Any<FileInfo>())
+                                using (MemoryStream memoryStream = new MemoryStream(dataFile.ArchivoData))
                                 {
-                                    string name = fileInfo.Name;
-                                    string extension = fileInfo.Extension;
-                                    int num1 = fileInfos.Count<FileInfo>();
-                                    str3 = name.Replace(extension, string.Concat("_", num1.ToString(), fileInfo.Extension));
-                                    archivoName["NombreExportado"] = str3;
-                                    archivoName["Estado"] = "Ok-Renombrado";
+                                    archivoName["NombreExportado"] = archivoName["NombreExportar"];
+                                    archivoExportar = archivoName["NombreExportar"].ToString();
+                                    FileInfo fileInfo = new FileInfo(archivoExportar);
+                                    string str3 = fileInfo.Name.Replace(fileInfo.Extension, string.Concat("*", fileInfo.Extension));
+                                    IEnumerable<FileInfo> fileInfos = directoryInfo.GetFiles(str3);
+                                    if (fileInfos.Any<FileInfo>())
+                                    {
+                                        string name = fileInfo.Name;
+                                        string extension = fileInfo.Extension;
+                                        int num1 = fileInfos.Count<FileInfo>();
+                                        str3 = name.Replace(extension, string.Concat("_", num1.ToString(), fileInfo.Extension));
+                                        archivoName["NombreExportado"] = str3;
+                                        archivoName["Estado"] = "Ok-Renombrado";
+                                    }
+                                    string selectedPath = this.folderBrowserExport.SelectedPath;
+                                    object obj = archivoName["NombreExportado"];
+                                    if (obj != null)
+                                    {
+                                        str1 = obj.ToString();
+                                    }
+                                    else
+                                    {
+                                        str1 = null;
+                                    }
+                                    using (FileStream fileStream = new FileStream(string.Concat(selectedPath, "\\", str1), FileMode.Create, FileAccess.Write))
+                                    {
+                                        byte[] numArray = new byte[memoryStream.Length];
+                                        memoryStream.Read(numArray, 0, (int)memoryStream.Length);
+                                        fileStream.Write(numArray, 0, (int)numArray.Length);
+                                        memoryStream.Close();
+                                    }
                                 }
-                                string selectedPath = this.folderBrowserExport.SelectedPath;
-                                object obj = archivoName["NombreExportado"];
-                                if (obj != null)
-                                {
-                                    str1 = obj.ToString();
-                                }
-                                else
-                                {
-                                    str1 = null;
-                                }
-                                using (FileStream fileStream = new FileStream(string.Concat(selectedPath, "\\", str1), FileMode.Create, FileAccess.Write))
-                                {
-                                    byte[] numArray = new byte[memoryStream.Length];
-                                    memoryStream.Read(numArray, 0, (int)memoryStream.Length);
-                                    fileStream.Write(numArray, 0, (int)numArray.Length);
-                                    memoryStream.Close();
-                                }
+                                dataFile.ArchivoData = null;
                             }
-                            dataFile.ArchivoData = null;
+                            int count = num * 100 / dataViews.Count;
+                            num++;
+                            this.bgw.ReportProgress(count);
                         }
-                        int count = num * 100 / dataViews.Count;
-                        num++;
-                        this.bgw.ReportProgress(count);
+                        else
+                        {
+                            e.Cancel = true;
+                            return;
+                        }
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        e.Cancel = true;
-                        return;
+                        String message = ex.Message + "\r\n";
+                        message += "Context {\r\n\tConsecutivo:" + dataFile.Consecutivo;
+                        message += "\r\n\tFileName:" + dataFile.ArchivoName;
+                        message += "\r\n\tFile:" + archivoExportar + "\r\n}";
+
+                        throw new ApplicationException(message, ex);
                     }
                 }
                 list.RemoveRange(0, list1.Count);
+
             }
         }
 

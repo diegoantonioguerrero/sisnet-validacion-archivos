@@ -6,6 +6,10 @@ SisnetData/bin/
 SisnetData/obj/
 SisnetValidacionArchivos/bin/
 SisnetValidacionArchivos/obj/
+SisnetExportador/bin/
+SisnetExportador/obj/
+VaccumPersonalizado/bin/
+VaccumPersonalizado/obj/
 packages/
-/.vs/SisnetValidacionArchivos/SisnetValidacionArchivos/FileContentIndex/
-/.vs/SisnetValidacionArchivos/v17/.suo
+.vs/SisnetValidacionArchivos/SisnetValidacionArchivos/FileContentIndex/
+.vs/SisnetValidacionArchivos/v17/.suo
