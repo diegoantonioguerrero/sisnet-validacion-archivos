@@ -19,7 +19,7 @@ namespace SisnetData
         {
         }
 
-        public List<ExportInfo> GetData(string tableName, DataTable dataToExport, string consecutivoField, string arhivoNameField, string archivoField)
+        public List<ExportInfo> GetData(string tableName, DataTable dataToExport, string consecutivoField, string arhivoNameField, string archivoField, int bufferItemsArchivo, int reintentosConexion)
         {
             List<ExportInfo> exportInfos = new List<ExportInfo>();
             string empty = string.Empty;
@@ -30,7 +30,7 @@ namespace SisnetData
 
                     List<ExportInfo> data = new List<ExportInfo>();
 
-                    int tamañoDeLote = 5000;
+                    int tamañoDeLote = bufferItemsArchivo;
 
                     for (int i = 0; i < dataToExport.Rows.Count; i += tamañoDeLote)
                     {
@@ -47,7 +47,9 @@ namespace SisnetData
                         }
 
                         empty = string.Concat(new string[] { "select cast(", consecutivoField, " as text) AS ", consecutivoField, ", ", arhivoNameField, ", cast((length(", archivoField, ") / 1048576.0) as text)|| ' MB' as filesize from ", tableName, " where cast(", consecutivoField, " as text) in(", str, ") ;" });
-                        using (NpgsqlDataReader npgsqlDataReader = (new NpgsqlCommand(empty, this.connection)).ExecuteReader())
+                        NpgsqlCommand command = new NpgsqlCommand(empty, this.connection);
+                        command.CommandTimeout = 60;
+                        using (NpgsqlDataReader npgsqlDataReader = (command).ExecuteReader())
                         {
                             while (npgsqlDataReader.Read())
                             {
@@ -59,6 +61,7 @@ namespace SisnetData
                                 });
                             }
                         }
+                        command.Dispose();
                     }
                 }
                 catch (Exception exception)
@@ -76,27 +79,49 @@ namespace SisnetData
             return exportInfos;
         }
 
-        public List<ExportInfo> GetDataFile(string tableName, DataTable dataToExport, string consecutivoField, string arhivoNameField, string archivoField, string consecutivos)
+        public List<ExportInfo> GetDataFile(string tableName, DataTable dataToExport, string consecutivoField, string arhivoNameField, string archivoField, string consecutivos, int reintentosConexion)
         {
             List<ExportInfo> exportInfos = new List<ExportInfo>();
             string empty = string.Empty;
             try
             {
+
                 try
                 {
                     this.connection.Open();
                     empty = string.Concat(new string[] { "select cast(", consecutivoField, " as text) AS ", consecutivoField, ", ", arhivoNameField, ", cast((length(", archivoField, ") / 1048576.0) as text)|| ' MB' as filesize,", archivoField, " from ", tableName, " where cast(", consecutivoField, " as text) in(", consecutivos, ") ;" });
-                    using (NpgsqlDataReader npgsqlDataReader = (new NpgsqlCommand(empty, this.connection)).ExecuteReader())
+                    NpgsqlCommand command = new NpgsqlCommand(empty, this.connection);
+                    command.CommandTimeout = 60;
+
+                    int intento = reintentosConexion;
+                    while (intento > 0)
                     {
-                        while (npgsqlDataReader.Read())
+                        try
                         {
-                            exportInfos.Add(new ExportInfo()
+                            using (NpgsqlDataReader npgsqlDataReader = command.ExecuteReader())
                             {
-                                Consecutivo = npgsqlDataReader.GetString(0),
-                                ArchivoName = npgsqlDataReader.GetString(1),
-                                ArchivoLength = npgsqlDataReader.GetString(2),
-                                ArchivoData = (byte[])npgsqlDataReader[3]
-                            });
+                                while (npgsqlDataReader.Read())
+                                {
+                                    exportInfos.Add(new ExportInfo()
+                                    {
+                                        Consecutivo = npgsqlDataReader.GetString(0),
+                                        ArchivoName = npgsqlDataReader.GetString(1),
+                                        ArchivoLength = npgsqlDataReader.GetString(2),
+                                        ArchivoData = (byte[])npgsqlDataReader[3]
+                                    });
+                                }
+                            }
+                            command.Dispose();
+                            intento = -1;
+
+                        }
+                        catch (Exception ex)
+                        {
+                            intento--;
+                            if(intento == 0)
+                            {
+                                throw ex;
+                            }
                         }
                     }
                 }
@@ -331,7 +356,7 @@ namespace SisnetData
         {
             NpgsqlCommand npgsqlCommand = new NpgsqlCommand()
             {
-                CommandText = string.Concat("insert into tablaarchivo (serial, imgname, img) VALUES ('123', '", fileName, "', @Image)"),
+                CommandText = string.Concat("insert into tablaarchivo (serial, imgname, img) VALUES ('127', '", fileName, "', @Image)"),
                 Connection = this.connection
             };
             npgsqlCommand.Parameters.Add(new NpgsqlParameter("Image", ImgByteA));

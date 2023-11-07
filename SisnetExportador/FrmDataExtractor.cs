@@ -3,11 +3,13 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Configuration;
 using System.Data;
 using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Windows.Forms;
+
 
 namespace SisnetExportador
 {
@@ -65,6 +67,11 @@ namespace SisnetExportador
 
         private BackgroundWorker bgw;
 
+        private int bufferItemsArchivo;
+        private int bufferItemsExportar;
+        private int reintentosConexion;
+        
+
         public FrmDataExtractor()
         {
             InitializeComponent();
@@ -78,6 +85,9 @@ namespace SisnetExportador
             this.dataToExport.Columns.Add(new DataColumn("Tamaño", typeof(string)));
             this.dataToExport.Columns.Add(new DataColumn("Estado", typeof(string)));
             this.dataGridView1.DataSource = this.dataToExport;
+            this.bufferItemsArchivo = Int32.Parse(ConfigurationManager.AppSettings["bufferItemsArchivo"].ToString());
+            this.bufferItemsExportar = Int32.Parse(ConfigurationManager.AppSettings["bufferItemsExportar"].ToString());
+            this.reintentosConexion = Int32.Parse(ConfigurationManager.AppSettings["reintentosConexion"].ToString());
         }
 
         private void InitializeComponentTotal()
@@ -391,7 +401,7 @@ namespace SisnetExportador
             {
                 return;
             }
-            List<ExportInfo> data = DBManager.GetDBManager().GetData(this.valueTable.ToString(), this.dataToExport, this.valueConsecutivo, this.valueArchivoName, this.valueArchivo);
+            List<ExportInfo> data = DBManager.GetDBManager().GetData(this.valueTable.ToString(), this.dataToExport, this.valueConsecutivo, this.valueArchivoName, this.valueArchivo, this.bufferItemsArchivo, this.reintentosConexion);
             int num = 0;
             foreach (DataRow row in this.dataToExport.Rows)
             {
@@ -523,9 +533,9 @@ namespace SisnetExportador
             int num = 0;
             while (list.Any<string>())
             {
-                List<string> list1 = list.Take<string>(50).ToList<string>();
+                List<string> list1 = list.Take<string>(this.bufferItemsExportar).ToList<string>();
                 string str2 = string.Join(",", list1.ToArray());
-                foreach (ExportInfo dataFile in dBManager.GetDataFile(this.valueTable.ToString(), this.dataToExport, this.valueConsecutivo, this.valueArchivoName, this.valueArchivo, str2))
+                foreach (ExportInfo dataFile in dBManager.GetDataFile(this.valueTable.ToString(), this.dataToExport, this.valueConsecutivo, this.valueArchivoName, this.valueArchivo, str2, this.reintentosConexion))
                 {
                     try
                     {
