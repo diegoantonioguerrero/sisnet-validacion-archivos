@@ -10,6 +10,8 @@ SisnetExportador/bin/
 SisnetExportador/obj/
 VaccumPersonalizado/bin/
 VaccumPersonalizado/obj/
+SisnetDBComparer/bin/
+SisnetDBComparer/obj/
 packages/
 .vs/SisnetValidacionArchivos/SisnetValidacionArchivos/FileContentIndex/
 .vs/SisnetValidacionArchivos/v17/.suo
