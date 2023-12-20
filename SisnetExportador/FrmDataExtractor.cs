@@ -562,12 +562,13 @@ namespace SisnetExportador
                                         // Obtén una lista de archivos que coinciden con el nombre y no tienen extensión
                                         fileInfos = directoryInfo.GetFiles(str3)
                                             .Where(fileFound => string.IsNullOrEmpty(fileFound.Extension))
-                                            .ToArray(); 
+                                            .ToArray();
                                     }
-                                    else {
+                                    else
+                                    {
                                         fileInfos = directoryInfo.GetFiles(str3);
                                     }
-                                    
+
                                     if (fileInfos.Any<FileInfo>())
                                     {
                                         string name = fileInfo.Name;

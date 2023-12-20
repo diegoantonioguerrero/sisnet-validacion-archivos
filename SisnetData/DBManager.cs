@@ -6,6 +6,7 @@ using System.Data;
 using System.Linq;
 
 using System.ComponentModel;
+using System.Threading;
 
 namespace SisnetData
 {
@@ -118,7 +119,7 @@ namespace SisnetData
                         catch (Exception ex)
                         {
                             intento--;
-                            if(intento == 0)
+                            if (intento == 0)
                             {
                                 throw ex;
                             }
@@ -142,7 +143,6 @@ namespace SisnetData
 
         public List<ProcessInfo> GetDataFileToConvert(string tableName, string fldidvalidacionarchivos)
         {
-            byte[] item;
             List<ProcessInfo> processInfos = new List<ProcessInfo>();
 #if DEBUG
             ProcessInfo itemTest = new ProcessInfo();
@@ -154,7 +154,9 @@ namespace SisnetData
             itemTest.ArchivoData = byt;
             processInfos.Add(itemTest);
             return processInfos;
-#endif
+#else
+            byte[] item;
+            
             string empty = string.Empty;
             try
             {
@@ -196,6 +198,7 @@ namespace SisnetData
                 }
             }
             return processInfos;
+#endif
         }
 
         public static DBManager GetDBManager()
@@ -205,6 +208,12 @@ namespace SisnetData
                 DBManager._self = new DBManager();
             }
             return DBManager._self;
+        }
+
+        public static DBManager GetInstance()
+        {
+            DBManager _instance = new DBManager();
+            return _instance;
         }
 
         public Dictionary<string, string> GetFields(string tableName)
@@ -240,15 +249,6 @@ namespace SisnetData
 
         public List<ProcessInfo> GetPendingFiles(string tableName)
         {
-            string str;
-            string str1;
-            string str2;
-            string str3;
-            string upper;
-            string str4;
-            string str5;
-            string str6;
-            string str7;
             List<ProcessInfo> processInfos = new List<ProcessInfo>();
             string empty = string.Empty;
 #if DEBUG
@@ -271,8 +271,8 @@ namespace SisnetData
             };
             processInfos.Add(itemTest);
             return processInfos;
+#else
 
-#endif
             try
             {
                 try
@@ -319,23 +319,67 @@ namespace SisnetData
                 }
             }
             return processInfos;
+#endif
         }
 
-        public List<string> GetTables()
+        public List<TableInfo> GetTables()
         {
-            List<string> strs = new List<string>();
+            List<TableInfo> tablesDetected = new List<TableInfo>();
             try
             {
                 try
                 {
-                    this.connection.Open();
-                    using (NpgsqlDataReader npgsqlDataReader = (new NpgsqlCommand("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' order by table_name", this.connection)).ExecuteReader())
+                    this.OpenConnection();
+                    string sqlTables = @"SELECT table_name, pg_size_pretty(pg_total_relation_size(table_name)) AS size_text, pg_total_relation_size(table_name) AS size
+                        FROM information_schema.tables 
+                        WHERE table_schema = 'public' 
+                  --              and table_name = 'actuacionespendientes'
+                        order by table_name
+ --limit 15
+;";
+
+                    using (NpgsqlDataReader npgsqlDataReader = (new NpgsqlCommand(sqlTables, this.connection)).ExecuteReader())
                     {
                         while (npgsqlDataReader.Read())
                         {
-                            strs.Add(npgsqlDataReader.GetString(0));
+                            tablesDetected.Add(new TableInfo()
+                            {
+                                Name = npgsqlDataReader.GetString(0),
+                                SizeInfo = npgsqlDataReader.GetString(1),
+                                Size = npgsqlDataReader.GetInt64(2)
+                            });
                         }
                     }
+
+                    if (!tablesDetected.Any())
+                    {
+                        return tablesDetected;
+                    }
+
+                    string sql = @"SELECT
+                        kc.table_name AS table_name,
+                        kc.column_name AS column_name,
+                        pc.conname
+                    FROM
+                        information_schema.key_column_usage kc
+                    JOIN
+                        pg_constraint pc ON
+                        kc.constraint_name = pc.conname
+                    WHERE
+                        pc.contype = 'p' AND
+                        kc.table_name in (";
+                    sql = sql + string.Join(", ", tablesDetected.Select(tableInfo => "'" + tableInfo.Name + "'").ToArray()) + ");";
+
+                    using (NpgsqlCommand command = new NpgsqlCommand(sql, this.connection))
+                    using (NpgsqlDataReader npgsqlDataReader = command.ExecuteReader())
+                    {
+                        while (npgsqlDataReader.Read())
+                        {
+                            TableInfo tableInfoKey = tablesDetected.Where(tableInfo => tableInfo.Name == npgsqlDataReader.GetString(0)).Single();
+                            tableInfoKey.Keys.Add(npgsqlDataReader.GetString(1));
+                        }
+                    }
+
                 }
                 catch (Exception exception)
                 {
@@ -349,8 +393,45 @@ namespace SisnetData
                     this.connection.Close();
                 }
             }
-            return strs;
+            return tablesDetected;
         }
+
+        public void GetRecordCount(List<TableInfo> tableNames)
+        {
+            try
+            {
+
+                string sql =
+                    string.Join($"{Environment.NewLine}UNION ", tableNames.Select(tableInfo =>
+                    $"SELECT '{tableInfo.Name}' AS TableName, COUNT(*) FROM {tableInfo.Name}"
+                    ).ToArray()) + ";";
+
+
+                this.connection.Open();
+                using (NpgsqlCommand command = new NpgsqlCommand(sql, this.connection))
+                using (NpgsqlDataReader npgsqlDataReader = command.ExecuteReader())
+                {
+                    while (npgsqlDataReader.Read())
+                    {
+                        TableInfo tableInfoKey = tableNames.Where(tableInfo => tableInfo.Name == npgsqlDataReader.GetString(0)).Single();
+                        tableInfoKey.Count = npgsqlDataReader.GetInt64(1);
+                    }
+                }
+
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+            finally
+            {
+                if (this.connection.State == ConnectionState.Open)
+                {
+                    this.connection.Close();
+                }
+            }
+        }
+
 
         public void Insert(string fileName, byte[] ImgByteA)
         {
@@ -378,12 +459,16 @@ namespace SisnetData
             this.connection.Close();
         }
 
-        public void SetDBManager(string ip, string db, string user, string pwd)
+        public void SetDBManager(string ip, string db, string user, string pwd, bool testConnection = true)
         {
             try
             {
                 this.connection = new NpgsqlConnection(string.Concat(new string[] { "Server=", ip, ";Port=5432;User ID=", user, ";Password=", pwd, ";Database=", db }));
-                this.connection.Open();
+                if (!testConnection)
+                {
+                    return;
+                }
+                this.OpenConnection();
                 this.connection.Close();
             }
             catch (Exception exception)
@@ -541,7 +626,788 @@ ALTER TABLE {0}_nueva RENAME TO {0};";
             }
             return strs;
         }
-        //
-        //EXECUTE 'ALTER TABLE {0}_nueva ADD CONSTRAINT ' || r.conname || ' ' || pg_get_constraintdef(r.oid) || ';'; 
+
+        public List<string> GetBds()
+        {
+            List<string> databaseNames = new List<string>();
+            try
+            {
+                try
+                {
+                    this.OpenConnection();
+                    using (NpgsqlDataReader dataReader = (new NpgsqlCommand("SELECT datname FROM pg_database ORDER BY datname;", this.connection)).ExecuteReader())
+                    {
+                        while (dataReader.Read())
+                        {
+                            databaseNames.Add(dataReader.GetString(0));
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    throw ex;
+                }
+            }
+            finally
+            {
+                this.CloseConnection();
+            }
+            return databaseNames;
+        }
+
+        public void OpenConnection()
+        {
+            int reintentos = 4;
+            while (reintentos >= 0)
+            {
+                try
+                {
+                    if (this.connection != null && this.connection.State != ConnectionState.Open)
+                    {
+                        this.connection.Open();
+                        reintentos = -1;
+                    }
+                }
+                catch (Exception ex)
+                {
+
+                    Console.WriteLine("Error OpenConnection");
+                    if (reintentos == 0)
+                    {
+                        throw ex;
+                    }
+                    // duerme 1 segundo para reintentar conexion
+                    Thread.Sleep(1000);
+
+                }
+                finally
+                {
+                    reintentos--;
+                }
+            }
+        }
+
+        public void CloseConnection()
+        {
+            if (this.connection != null && this.connection.State == ConnectionState.Open)
+            {
+                this.connection.Close();
+            }
+        }
+        public DataTable GetTableData(string tableName, bool loadOnlySchema = false)
+        {
+            DataTable table = new DataTable();
+            bool openLocalConexion = false;
+
+            try
+            {
+                if (this.connection.State != ConnectionState.Open)
+                {
+                    this.OpenConnection();
+                    openLocalConexion = true;
+                }
+
+
+                int reintentos = 2;
+                while (reintentos >= 0)
+                {
+                    try
+                    {
+
+                        string sql = $"SELECT * FROM {tableName}" + (loadOnlySchema ? "WHERE 1=2" : string.Empty  ) + " ORDER BY 1;";
+                        using (NpgsqlCommand command = new NpgsqlCommand(sql, this.connection))
+                        {
+                            // Ajusta el tiempo de espera aquí (en segundos)
+                            // 20 minutos
+                            command.CommandTimeout = 60 * 20;
+                            using (NpgsqlDataReader npgsqlDataReader = command.ExecuteReader())
+                            {
+                                DataTable schema = npgsqlDataReader.GetSchemaTable();
+                                foreach (DataRow row in schema.Rows)
+                                {
+                                    DataColumn columnAdded = table.Columns.Add(row["ColumnName"].ToString(), (Type)row["DataType"]);
+                                    if (row["ProviderType"].ToString() == "time")
+                                    {
+                                        columnAdded.ExtendedProperties.Add("ProviderType", "time");
+                                    }
+
+                                }
+
+                                table.Load(npgsqlDataReader);
+                            }
+                        }
+                        reintentos = -1;
+
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine("Error GetTableData -> " + ex.Message);
+                        if (reintentos == 0)
+                        {
+                            throw ex;
+                        }
+
+                    }
+                    finally
+                    {
+                        reintentos--;
+                    }
+                }
+
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error GetTableData " + tableName + " -> " + ex.Message);
+                throw ex;
+            }
+            finally
+            {
+                if (openLocalConexion && this.connection.State == ConnectionState.Open)
+                {
+                    this.connection.Close();
+                }
+            }
+
+            return table;
+
+        }
+
+        public string GetCreateSchemaTable(string tableName)
+        {
+            DataTable dataTableFields = this.GetFieldsAdvance(tableName);
+            string[] columns = (from DataRow row in dataTableFields.Rows
+                                select Environment.NewLine + row["column_name"].ToString() + ' ' +
+                                (
+                                row["data_type"].ToString() == "numeric" ?
+                                    row["data_type"].ToString() + "(" + row["numeric_precision"].ToString() + "," + row["numeric_scale"].ToString() + ")"
+                                    : row["data_type"].ToString()
+                                )
+                                + " " +
+                                  (row["character_maximum_length"] != null && !string.IsNullOrEmpty(row["character_maximum_length"].ToString()) ?
+                                 "(" + row["character_maximum_length"].ToString() + ")" :
+                                 string.Empty)
+
+                                 +
+                                 (
+                                 row["default_value"] != null && !string.IsNullOrEmpty(row["default_value"].ToString()) ?
+                                 " DEFAULT " + row["default_value"].ToString() :
+                                 string.Empty
+
+                                 )
+                                     ).ToArray();
+
+            DataTable dataTableFieldsPK = this.GetPrimaryFields(tableName);
+
+            string constraint_name =
+                (from DataRow row in dataTableFieldsPK.Rows
+                 select row["constraint_name"].ToString()).FirstOrDefault();
+
+            string[] columnsPrimaryKey = (from DataRow row in dataTableFieldsPK.Rows
+                                          select row["column_name"].ToString()
+                                     ).ToArray();
+
+            constraint_name = string.IsNullOrEmpty(constraint_name) ? string.Empty :
+                 $"CONSTRAINT {constraint_name} PRIMARY KEY ( " + string.Join(",", columnsPrimaryKey) + ")";
+
+            string createSentence = "CREATE TABLE " + tableName + " (" + string.Join(",", columns) + $" {Environment.NewLine}";
+            //si tiene llave primaria se suma 
+            createSentence += (string.IsNullOrEmpty(constraint_name) ? string.Empty : $",{constraint_name}{Environment.NewLine}");
+            createSentence += "); ";
+
+
+            DataTable dataTableAdditionaIndices = this.GetAdditionlIndices(tableName);
+            string[] indexdefs = (from DataRow row in dataTableAdditionaIndices.Rows
+                                  select row["indexdef"].ToString()
+                                     ).ToArray();
+
+            createSentence += indexdefs.Length > 0 ?
+                Environment.NewLine + string.Join($";{Environment.NewLine}", indexdefs) + ";" : string.Empty;
+
+
+            return createSentence;
+        }
+        public DataTable GetFieldsAdvance(string tableName)
+        {
+            DataTable table = new DataTable();
+            bool openLocalConexion = false;
+
+            try
+            {
+                if (this.connection.State != ConnectionState.Open)
+                {
+                    this.OpenConnection();
+                    openLocalConexion = true;
+                }
+
+
+                int reintentos = 2;
+                while (reintentos >= 0)
+                {
+                    try
+                    {
+                        string sql = @"SELECT ic.table_name, ic.column_name, ic.data_type, ic.character_maximum_length, ic.numeric_precision, ic.numeric_scale, df.default_value
+                            FROM information_schema.columns ic
+                            LEFT JOIN (
+	                            SELECT
+	                                a.attname AS column_name,
+	                                d.adsrc AS default_value
+	                            FROM
+	                                pg_attribute a
+	                            JOIN
+	                                pg_attrdef d ON
+	                                a.attrelid = d.adrelid AND a.attnum = d.adnum
+	                            JOIN
+	                                pg_class c ON
+	                                a.attrelid = c.oid
+	                            WHERE
+	                                c.relname = '" + tableName + "'" +
+                            @") AS df ON df.column_name = ic.column_name
+                        
+                            WHERE ic.table_name = '" + tableName + "'" +
+                            "ORDER BY ic.ordinal_position;";
+
+                        using (NpgsqlCommand command = new NpgsqlCommand(sql, this.connection))
+                        {
+                            // Ajusta el tiempo de espera aquí (en segundos)
+                            // 5 minutos
+                            command.CommandTimeout = 60 * 5;
+                            using (NpgsqlDataReader npgsqlDataReader = command.ExecuteReader())
+                            {
+                                DataTable schema = npgsqlDataReader.GetSchemaTable();
+                                foreach (DataRow row in schema.Rows)
+                                {
+                                    table.Columns.Add(row["ColumnName"].ToString(), (Type)row["DataType"]);
+                                }
+
+                                table.Load(npgsqlDataReader);
+                            }
+                        }
+                        reintentos = -1;
+
+                    }
+                    catch (Exception ex)
+                    {
+
+                        Console.WriteLine("Error GetFieldsAdvance -> " + ex.Message);
+                        if (reintentos == 0)
+                        {
+                            throw ex;
+                        }
+
+                    }
+                    finally
+                    {
+                        reintentos--;
+                    }
+                }
+
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error GetFieldsAdvance " + tableName + " -> " + ex.Message);
+                throw ex;
+            }
+            finally
+            {
+                if (openLocalConexion && this.connection.State == ConnectionState.Open)
+                {
+                    this.connection.Close();
+                }
+            }
+
+            return table;
+        }
+
+        public DataTable GetPrimaryFields(string tableName)
+        {
+            DataTable table = new DataTable();
+            bool openLocalConexion = false;
+
+            try
+            {
+                if (this.connection.State != ConnectionState.Open)
+                {
+                    this.OpenConnection();
+                    openLocalConexion = true;
+                }
+
+
+                int reintentos = 2;
+                while (reintentos >= 0)
+                {
+                    try
+                    {
+                        string sql = @"SELECT
+                                kc.column_name AS column_name,
+                                pc.conname AS constraint_name
+                            FROM
+                                information_schema.key_column_usage kc
+                            JOIN
+                                pg_constraint pc ON
+                                kc.constraint_name = pc.conname
+                            WHERE
+                                pc.contype = 'p' AND
+                                kc.table_name = ";
+
+                        sql += $"'{tableName}';";
+
+                        using (NpgsqlCommand command = new NpgsqlCommand(sql, this.connection))
+                        {
+                            using (NpgsqlDataReader npgsqlDataReader = command.ExecuteReader())
+                            {
+                                DataTable schema = npgsqlDataReader.GetSchemaTable();
+                                foreach (DataRow row in schema.Rows)
+                                {
+                                    table.Columns.Add(row["ColumnName"].ToString(), (Type)row["DataType"]);
+                                }
+
+                                table.Load(npgsqlDataReader);
+                            }
+                        }
+                        reintentos = -1;
+
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine("Error GetPrimaryFields ->" + ex.Message);
+                        if (reintentos == 0)
+                        {
+                            throw ex;
+                        }
+
+                    }
+                    finally
+                    {
+                        reintentos--;
+                    }
+                }
+
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error GetPrimaryFields " + tableName + " -> " + ex.Message);
+                throw ex;
+            }
+            finally
+            {
+                if (openLocalConexion && this.connection.State == ConnectionState.Open)
+                {
+                    this.connection.Close();
+                }
+            }
+
+            return table;
+        }
+
+
+        public void SincronizeTable(DataTable data, string tableName)
+        {
+            try
+            {
+                // Ordenar aleatoriamente los datos
+                var random = new Random();
+                var dataTable = data.AsEnumerable()
+                    .OrderBy(row => random.Next())
+                    .Take(5).CopyToDataTable();
+
+
+                // Construir la sentencia SQL
+                // Inicializar la cadena SQL
+                string sql = $"INSERT INTO {tableName} (";
+
+                // Agregar los nombres de las columnas al inicio de la sentencia SQL
+                sql += string.Join(", ", dataTable.Columns.Cast<DataColumn>().Select(column => column.ColumnName).ToArray());
+
+                // Continuar la sentencia SQL con los valores
+                sql += $") {Environment.NewLine} VALUES (";
+
+                // Recorrer las filas y agregar los valores
+                for (int i = 0; i < dataTable.Rows.Count; i++)
+                {
+                    DataRow row = dataTable.Rows[i];
+                    for (int j = 0; j < row.ItemArray.Length; j++)
+                    {
+                        if (j > 0)
+                        {
+                            sql += ", ";
+                        }
+
+                        sql += $"@param_{i}_{j}";
+                    }
+
+                    if (i < dataTable.Rows.Count - 1)
+                    {
+                        sql += $"),{Environment.NewLine} (";
+                    }
+                }
+
+                sql += ");";
+
+                // Crear y agregar parámetros para evitar inyección de SQL
+                using (NpgsqlCommand cmd = new NpgsqlCommand())
+                {
+                    for (int i = 0; i < dataTable.Rows.Count; i++)
+                    {
+                        DataRow row = dataTable.Rows[i];
+                        for (int j = 0; j < row.ItemArray.Length; j++)
+                        {
+                            cmd.Parameters.AddWithValue($"@param_{i}_{j}", row.ItemArray[j]);
+                        }
+                    }
+
+                    cmd.CommandText = sql;
+                    cmd.Connection = this.connection;
+                    this.connection.Open();
+                    cmd.ExecuteNonQuery();
+
+                }
+
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+            finally
+            {
+                if (this.connection.State == ConnectionState.Open)
+                {
+                    this.connection.Close();
+                }
+            }
+
+        }
+
+
+        string ConstruirSentenciaSql(DataTable dataTable, string nombreTabla)
+        {
+            // Inicializar la cadena SQL
+            string sql = $"INSERT INTO {nombreTabla} (";
+
+            // Agregar los nombres de las columnas al inicio de la sentencia SQL
+            sql += string.Join(", ", dataTable.Columns.Cast<DataColumn>().Select(column => column.ColumnName).ToArray());
+
+            // Continuar la sentencia SQL con los valores
+            sql += ") VALUES" + Environment.NewLine;
+
+            // Recorrer las filas y agregar los valores
+            foreach (DataRow row in dataTable.Rows)
+            {
+                sql += $"    ({string.Join(", ", row.ItemArray.Select(value => FormatearValor(value)).ToArray())}),{Environment.NewLine}";
+            }
+
+            // Quitar la coma adicional al final y agregar un punto y coma al final
+            sql = sql.TrimEnd(',', '\r', '\n') + ";";
+
+            return sql;
+        }
+
+        string FormatearValor(object valor)
+        {
+            // Asegurarse de que los valores de cadena estén entre comillas
+            if (valor is string)
+            {
+                return $"'{valor}'";
+            }
+
+            return valor.ToString();
+        }
+
+        public void ExecuteSentence(string sqlSentence)
+        {
+            DataTable table = new DataTable();
+            bool openLocalConexion = false;
+
+            try
+            {
+                if (this.connection.State != ConnectionState.Open)
+                {
+                    this.OpenConnection();
+                    openLocalConexion = true;
+                }
+
+
+                int reintentos = 2;
+                while (reintentos >= 0)
+                {
+                    try
+                    {
+                        using (NpgsqlCommand command = new NpgsqlCommand(sqlSentence, this.connection))
+                        {
+                            command.ExecuteNonQuery();
+                        }
+                        reintentos = -1;
+
+                    }
+                    catch (Exception ex)
+                    {
+
+                        Console.WriteLine("Error ExecuteSentence -> " + sqlSentence + ex.Message);
+                        if (reintentos == 0)
+                        {
+                            throw ex;
+                        }
+
+                    }
+                    finally
+                    {
+                        reintentos--;
+                    }
+                }
+
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error ExecutingSentence -> " + sqlSentence + " -> " + ex.Message);
+                throw ex;
+            }
+            finally
+            {
+                if (openLocalConexion && this.connection.State == ConnectionState.Open)
+                {
+                    this.connection.Close();
+                }
+            }
+        }
+
+
+        public void ExecuteRecord(string preparedStatement, object[] data)
+        {
+            bool openLocalConexion = false;
+
+            try
+            {
+                if (this.connection.State != ConnectionState.Open)
+                {
+                    this.OpenConnection();
+                    openLocalConexion = true;
+                }
+
+
+                int reintentos = 2;
+                while (reintentos >= 0)
+                {
+                    try
+                    {
+                        using (NpgsqlCommand command = new NpgsqlCommand(preparedStatement, this.connection))
+                        {
+
+                            var parameters =
+                                data.Select((valor, indice) =>
+                                new NpgsqlParameter($"p{indice}", valor)).ToArray();
+
+                            command.Parameters.AddRange(parameters);
+
+                            command.ExecuteNonQuery();
+                        }
+                        reintentos = -1;
+
+                    }
+                    catch (Exception ex)
+                    {
+
+                        Console.WriteLine("Error ExecuteRecord -> " + preparedStatement + ex.Message);
+                        if (reintentos == 0)
+                        {
+                            throw ex;
+                        }
+
+                    }
+                    finally
+                    {
+                        reintentos--;
+                    }
+                }
+
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error ExecuteRecord -> " + preparedStatement + " -> " + ex.Message);
+                throw ex;
+            }
+            finally
+            {
+                if (openLocalConexion && this.connection.State == ConnectionState.Open)
+                {
+                    this.connection.Close();
+                }
+            }
+        }
+
+
+        public DataTable GetAdditionlIndices(string tableName)
+        {
+            DataTable table = new DataTable();
+            bool openLocalConexion = false;
+
+            try
+            {
+                if (this.connection.State != ConnectionState.Open)
+                {
+                    this.OpenConnection();
+                    openLocalConexion = true;
+                }
+
+
+                int reintentos = 2;
+                while (reintentos >= 0)
+                {
+                    try
+                    {
+                        string sql = @"SELECT
+                            indexname,
+                            indexdef
+                        FROM
+                            pg_indexes
+                        WHERE
+                            tablename = '" + tableName + "' " +
+                            @"AND indexname NOT IN(
+	                        SELECT                               
+	                        pc.conname 
+	                        FROM
+	                        information_schema.key_column_usage kc
+	                        JOIN
+	                        pg_constraint pc ON
+	                        kc.constraint_name = pc.conname
+	                        WHERE
+	                        pc.contype = 'p' AND
+	                        kc.table_name = '" + tableName + "'" +
+                        ");";
+
+                        using (NpgsqlCommand command = new NpgsqlCommand(sql, this.connection))
+                        {
+                            using (NpgsqlDataReader npgsqlDataReader = command.ExecuteReader())
+                            {
+                                DataTable schema = npgsqlDataReader.GetSchemaTable();
+                                foreach (DataRow row in schema.Rows)
+                                {
+                                    table.Columns.Add(row["ColumnName"].ToString(), (Type)row["DataType"]);
+                                }
+
+                                table.Load(npgsqlDataReader);
+                            }
+                        }
+                        reintentos = -1;
+
+                    }
+                    catch (Exception ex)
+                    {
+
+                        Console.WriteLine("Error GetIndices -> " + ex.Message);
+                        if (reintentos == 0)
+                        {
+                            throw ex;
+                        }
+
+                    }
+                    finally
+                    {
+                        reintentos--;
+                    }
+                }
+
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error GetIndices " + tableName + " -> " + ex.Message);
+                throw ex;
+            }
+            finally
+            {
+                if (openLocalConexion && this.connection.State == ConnectionState.Open)
+                {
+                    this.connection.Close();
+                }
+            }
+
+            return table;
+        }
+
+        public DataTable GetForeginKeys(string tableName)
+        {
+            DataTable table = new DataTable();
+            bool openLocalConexion = false;
+
+            try
+            {
+                if (this.connection.State != ConnectionState.Open)
+                {
+                    this.OpenConnection();
+                    openLocalConexion = true;
+                }
+
+
+                int reintentos = 2;
+                while (reintentos >= 0)
+                {
+                    try
+                    {
+                        string sql = @"SELECT
+                            conname AS foreign_key_name,
+                            conrelid::regclass AS table_origin,
+                            a.attname AS column_origin,
+                            confrelid::regclass AS table_destination,
+                            af.attname AS column_destination,
+                            confupdtype AS action_update,
+                            confdeltype AS action_delete
+                        FROM
+                            pg_constraint c
+                        JOIN
+                            pg_attribute a ON a.attnum = ANY(c.conkey) AND a.attrelid = c.conrelid
+                        JOIN
+                            pg_attribute af ON af.attnum = ANY(c.confkey) AND af.attrelid = c.confrelid";
+
+                        sql += (string.IsNullOrEmpty(tableName) ? ";" :
+                            "WHERE conrelid = '" + tableName + "'::regclass;");
+
+                        using (NpgsqlCommand command = new NpgsqlCommand(sql, this.connection))
+                        {
+                            using (NpgsqlDataReader npgsqlDataReader = command.ExecuteReader())
+                            {
+                                DataTable schema = npgsqlDataReader.GetSchemaTable();
+                                foreach (DataRow row in schema.Rows)
+                                {
+                                    table.Columns.Add(row["ColumnName"].ToString(), (Type)row["DataType"]);
+                                }
+
+                                table.Load(npgsqlDataReader);
+                            }
+                        }
+                        reintentos = -1;
+
+                    }
+                    catch (Exception ex)
+                    {
+
+                        Console.WriteLine("Error GetIndices -> " + ex.Message);
+                        if (reintentos == 0)
+                        {
+                            throw ex;
+                        }
+
+                    }
+                    finally
+                    {
+                        reintentos--;
+                    }
+                }
+
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error GetIndices " + tableName + " -> " + ex.Message);
+                throw ex;
+            }
+            finally
+            {
+                if (openLocalConexion && this.connection.State == ConnectionState.Open)
+                {
+                    this.connection.Close();
+                }
+            }
+
+            return table;
+        }
+
+
     }
 }
