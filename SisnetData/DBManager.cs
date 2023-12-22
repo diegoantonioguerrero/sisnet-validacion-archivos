@@ -449,6 +449,7 @@ namespace SisnetData
 
         public void InsertArchivo(string id, byte[] ImgByteA)
         {
+            
             NpgsqlCommand npgsqlCommand = new NpgsqlCommand()
             {
                 CommandText = string.Concat("insert into abarchivos (idarchivo, archivo) VALUES ('" + id + "', @Image)"),
@@ -458,52 +459,8 @@ namespace SisnetData
             this.connection.Open();
             npgsqlCommand.ExecuteNonQuery();
             this.connection.Close();
-
-            //NpgsqlLargeObjectManager 
-            /*
-
-            connection.Open();
-
-            using (NpgsqlTransaction transaction = connection.BeginTransaction())
-            {
-                try
-                {
-                    int oid;
-
-                    // Utilizar NpgsqlLargeObjectManager para crear un nuevo large object
-                    using (NpgsqlLargeObjectManager manager = new NpgsqlLargeObjectManager(connection))
-                    {
-                        oid = manager.Create();
-                    }
-
-                    // Utilizar NpgsqlLargeObjectManager para abrir el large object para escritura
-                    using (NpgsqlLargeObject lobj = new NpgsqlLargeObject(connection, oid, NpgsqlLargeObjectManager.READWRITE))
-                    {
-                        // Escribir los datos en el large object
-                        lobj.Write(archivoData, 0, archivoData.Length);
-                    }
-
-                    // Ejemplo de insert utilizando el oid del large object
-                    using (NpgsqlCommand command = new NpgsqlCommand("INSERT INTO tu_tabla (idarchivo, archivo) VALUES (@idarchivo, @archivo)", connection, transaction))
-                    {
-                        command.Parameters.AddWithValue("@idarchivo", 1);  // Asignar el valor adecuado para idarchivo
-                        command.Parameters.AddWithValue("@archivo", oid);  // Utilizar el oid del large object
-
-                        int rowsAffected = command.ExecuteNonQuery();
-
-                        Console.WriteLine($"{rowsAffected} fila(s) afectada(s).");
-                    }
-
-                    // Confirmar la transacción
-                    transaction.Commit();
-                }
-                catch (Exception ex)
-                {
-                    // Manejar errores y realizar rollback en caso de excepción
-                    Console.WriteLine("Error: " + ex.Message);
-                    transaction.Rollback();
-                }
-            }*/
+            
+            
         }
 
 

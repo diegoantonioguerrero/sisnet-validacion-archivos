@@ -668,7 +668,9 @@ namespace SisnetExportador
 
         private void LoadTables()
         {
-            List<string> tables = DBManager.GetDBManager().GetTables();
+            List<TableInfo> tablesInfo =  DBManager.GetDBManager().GetTables();
+            List<string> tables = (from TableInfo info in tablesInfo
+                                   select info.Name).ToList();
             Dictionary<string, string> strs = new Dictionary<string, string>()
             {
                 { string.Empty, "-Seleccione una tabla-" }
