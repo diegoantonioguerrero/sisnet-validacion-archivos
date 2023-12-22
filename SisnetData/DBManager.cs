@@ -7,6 +7,7 @@ using System.Linq;
 
 using System.ComponentModel;
 using System.Threading;
+//using Mono.Security.Cryptography;
 
 namespace SisnetData
 {
@@ -333,9 +334,9 @@ namespace SisnetData
                     string sqlTables = @"SELECT table_name, pg_size_pretty(pg_total_relation_size(table_name)) AS size_text, pg_total_relation_size(table_name) AS size
                         FROM information_schema.tables 
                         WHERE table_schema = 'public' 
-                  --              and table_name = 'actuacionespendientes'
+                                and table_name = 'imagenesanexas'
                         order by table_name
- --limit 15
+ --limit 70
 ;";
 
                     using (NpgsqlDataReader npgsqlDataReader = (new NpgsqlCommand(sqlTables, this.connection)).ExecuteReader())
@@ -445,6 +446,66 @@ namespace SisnetData
             npgsqlCommand.ExecuteNonQuery();
             this.connection.Close();
         }
+
+        public void InsertArchivo(string id, byte[] ImgByteA)
+        {
+            NpgsqlCommand npgsqlCommand = new NpgsqlCommand()
+            {
+                CommandText = string.Concat("insert into abarchivos (idarchivo, archivo) VALUES ('" + id + "', @Image)"),
+                Connection = this.connection
+            };
+            npgsqlCommand.Parameters.Add(new NpgsqlParameter("Image", ImgByteA));
+            this.connection.Open();
+            npgsqlCommand.ExecuteNonQuery();
+            this.connection.Close();
+
+            //NpgsqlLargeObjectManager 
+            /*
+
+            connection.Open();
+
+            using (NpgsqlTransaction transaction = connection.BeginTransaction())
+            {
+                try
+                {
+                    int oid;
+
+                    // Utilizar NpgsqlLargeObjectManager para crear un nuevo large object
+                    using (NpgsqlLargeObjectManager manager = new NpgsqlLargeObjectManager(connection))
+                    {
+                        oid = manager.Create();
+                    }
+
+                    // Utilizar NpgsqlLargeObjectManager para abrir el large object para escritura
+                    using (NpgsqlLargeObject lobj = new NpgsqlLargeObject(connection, oid, NpgsqlLargeObjectManager.READWRITE))
+                    {
+                        // Escribir los datos en el large object
+                        lobj.Write(archivoData, 0, archivoData.Length);
+                    }
+
+                    // Ejemplo de insert utilizando el oid del large object
+                    using (NpgsqlCommand command = new NpgsqlCommand("INSERT INTO tu_tabla (idarchivo, archivo) VALUES (@idarchivo, @archivo)", connection, transaction))
+                    {
+                        command.Parameters.AddWithValue("@idarchivo", 1);  // Asignar el valor adecuado para idarchivo
+                        command.Parameters.AddWithValue("@archivo", oid);  // Utilizar el oid del large object
+
+                        int rowsAffected = command.ExecuteNonQuery();
+
+                        Console.WriteLine($"{rowsAffected} fila(s) afectada(s).");
+                    }
+
+                    // Confirmar la transacción
+                    transaction.Commit();
+                }
+                catch (Exception ex)
+                {
+                    // Manejar errores y realizar rollback en caso de excepción
+                    Console.WriteLine("Error: " + ex.Message);
+                    transaction.Rollback();
+                }
+            }*/
+        }
+
 
         public void InsertValidacionarchivos(string fileName, byte[] ImgByteA)
         {
@@ -694,7 +755,7 @@ ALTER TABLE {0}_nueva RENAME TO {0};";
                 this.connection.Close();
             }
         }
-        public DataTable GetTableData(string tableName, bool loadOnlySchema = false)
+        public DataTable GetTableData(string tableName, List<DataColumn> columnsKeys = null, object[][] filterData = null, bool onlySchema = false)
         {
             DataTable table = new DataTable();
             bool openLocalConexion = false;
@@ -713,8 +774,38 @@ ALTER TABLE {0}_nueva RENAME TO {0};";
                 {
                     try
                     {
+                        string[] fieldsToSelect = null;
+                        string fields = "*";
+                        if (columnsKeys != null)
+                        {
+                            fieldsToSelect = (from DataColumn column in columnsKeys
+                                              select column.ColumnName).ToArray();
+                        }
 
-                        string sql = $"SELECT * FROM {tableName}" + (loadOnlySchema ? "WHERE 1=2" : string.Empty  ) + " ORDER BY 1;";
+                        if (columnsKeys != null && filterData == null)
+                        {
+                            fields = string.Join(",", fieldsToSelect);
+                        }
+
+
+                        string sql = $"SELECT {fields} FROM {tableName}";
+
+                        if (filterData != null)
+                        {
+                            string[] dataToSelect = (from object[] data in filterData
+                                                     select GenerateFilter(fieldsToSelect, data)).ToArray();
+                            sql += " WHERE " + string.Join(" OR ", dataToSelect);
+                        }
+
+                        if (onlySchema)
+                        {
+                            sql += " WHERE 1=2 ";
+                        }
+                        if (!sql.Contains("WHERE"))
+                        {
+                            sql += " where fldidimagenesanexas = 6967 ";
+                        }
+                        sql += " ORDER BY 1;";
                         using (NpgsqlCommand command = new NpgsqlCommand(sql, this.connection))
                         {
                             // Ajusta el tiempo de espera aquí (en segundos)
@@ -770,6 +861,15 @@ ALTER TABLE {0}_nueva RENAME TO {0};";
 
             return table;
 
+        }
+
+        private string GenerateFilter(string[] fieldsToSelect, object[] data)
+        {
+            string[] filterKeys =
+                fieldsToSelect.Select((valor, indice) =>
+                                $"({valor} = '" + data[indice] + "')").ToArray();
+
+            return string.Join(" AND ", filterKeys);
         }
 
         public string GetCreateSchemaTable(string tableName)
@@ -1173,7 +1273,7 @@ ALTER TABLE {0}_nueva RENAME TO {0};";
         public void ExecuteRecord(string preparedStatement, object[] data)
         {
             bool openLocalConexion = false;
-
+            string context = "1";
             try
             {
                 if (this.connection.State != ConnectionState.Open)
@@ -1188,23 +1288,28 @@ ALTER TABLE {0}_nueva RENAME TO {0};";
                 {
                     try
                     {
-                        using (NpgsqlCommand command = new NpgsqlCommand(preparedStatement, this.connection))
+                        lock (this.connection)
                         {
+                            using (NpgsqlCommand command = new NpgsqlCommand(preparedStatement, this.connection))
+                            {
+                                context += "2";
+                                var parameters =
+                                    data.Select((valor, indice) =>
+                                    new NpgsqlParameter($"p{indice}", valor)).ToArray();
 
-                            var parameters =
-                                data.Select((valor, indice) =>
-                                new NpgsqlParameter($"p{indice}", valor)).ToArray();
-
-                            command.Parameters.AddRange(parameters);
-
-                            command.ExecuteNonQuery();
+                                context += "3";
+                                command.Parameters.AddRange(parameters);
+                                context += "4";
+                                command.ExecuteNonQuery();
+                                context += "5";
+                            }
                         }
                         reintentos = -1;
 
                     }
                     catch (Exception ex)
                     {
-
+                        context += "6" + ex.Message;
                         Console.WriteLine("Error ExecuteRecord -> " + preparedStatement + ex.Message);
                         if (reintentos == 0)
                         {
@@ -1221,8 +1326,9 @@ ALTER TABLE {0}_nueva RENAME TO {0};";
             }
             catch (Exception ex)
             {
+                context += "7" + ex.Message;
                 Console.WriteLine("Error ExecuteRecord -> " + preparedStatement + " -> " + ex.Message);
-                throw ex;
+                throw new ApplicationException(ex.Message + context, ex);
             }
             finally
             {

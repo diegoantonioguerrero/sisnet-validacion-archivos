@@ -9,6 +9,7 @@ using System.Data;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -49,8 +50,8 @@ namespace SisnetDBComparer
         DataTable resumedTable2 = null;
 
         private bool dataEquals;
-
-
+        private readonly long FACTOR_MB = 1000000;
+        private readonly long MB_100 = 1000;
 
         public FrmComparer()
         {
@@ -225,10 +226,32 @@ namespace SisnetDBComparer
             this.pgb.Value = e.ProgressPercentage;
             if (e.UserState == null)
                 return;
-            ItemDTO item = (ItemDTO)e.UserState;
-            this.lblStatusProgress.Text = !string.IsNullOrEmpty(item.Table1) ? item.Table1 : item.Table2;
-            this.lvComparer.Items[item.Index].ImageIndex = item.EqualData.HasValue ? (item.EqualData.Value ? (int)Utils.Status.Equal : (int)Utils.Status.NotEqual) : (int)Utils.Status.Cargando;
-            this.lvComparer.Items[item.Index].EnsureVisible();
+
+            ItemDTO item;
+            if (e.UserState is ComparationResult)
+            {
+                Console.WriteLine("Notificado analyzer" + this.pgb.Value);
+                ComparationResult comparationResult = (ComparationResult)e.UserState;
+                item = comparationResult.Item;
+                if (comparationResult.StatusDetails == StatusDetails.ComparacionOk)
+                {
+                    this.lblStatusProgress.Text = !string.IsNullOrEmpty(item.Table1) ? item.Table1 : item.Table2;
+                    this.lblStatusProgress.Text += (item.LoadedOnlySchema ? " [online] " : " [memory] ") + comparationResult.Index;
+                }
+
+            }
+            else
+            {
+                Console.WriteLine("Notificado generla " + this.pgb.Value);
+                item = (ItemDTO)e.UserState;
+                this.lblStatusProgress.Text = !string.IsNullOrEmpty(item.Table1) ? item.Table1 : item.Table2;
+                this.lblStatusProgress.Text += item.LoadedOnlySchema ? " [online]" : " [memory]";
+                this.lvComparer.Items[item.Index].ImageIndex = item.EqualData.HasValue ? (item.EqualData.Value ? (int)Utils.Status.Equal : (int)Utils.Status.NotEqual) : (int)Utils.Status.Cargando;
+                this.lvComparer.Items[item.Index].EnsureVisible();
+            }
+
+
+
         }
 
         private void bgwAnalyzer_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
@@ -349,18 +372,18 @@ namespace SisnetDBComparer
                 for (int i = 0; i < this.totalData.Count; i += subcycleSize)
                 {
                     // Utilizando ThreadPool para simular Parallel.ForEach
-                    ManualResetEvent resetEvent = new ManualResetEvent(false);
+                    //ManualResetEvent resetEvent = new ManualResetEvent(false);
 
                     // Utilizar Take para obtener el subconjunto de 10 elementos
                     IEnumerable<ItemDTO> subcycle = this.totalData.Skip(i).Take(subcycleSize);
                     int remainingTasks = subcycle.Count();
 
-                    foreach (ItemDTO row in subcycle)
+                    foreach (ItemDTO tableToCompare in subcycle)
                     {
                         //ThreadPool.QueueUserWorkItem((state) =>
                         {
                             // Realiza la operación para cada elemento
-                            Console.WriteLine(row);
+                            Console.WriteLine(tableToCompare);
                             if (this.bgwAnalyzer.CancellationPending)
                             {
                                 e.Cancel = true;
@@ -368,36 +391,37 @@ namespace SisnetDBComparer
                             }
 
                             int percentageTotalAvance = num * 100 / this.totalData.Count;
-                            this.bgwAnalyzer.ReportProgress(percentageTotalAvance, row);
-                            string tablaOrigen = row.Table1;
-                            string tablaDestino = row.Table2;
+                            this.bgwAnalyzer.ReportProgress(percentageTotalAvance, tableToCompare);
+                            string tablaOrigen = tableToCompare.Table1;
+                            string tablaDestino = tableToCompare.Table2;
 
                             if (string.Compare(tablaOrigen, tablaDestino) != 0)
                             {
-                                row.EqualData = false;
+                                tableToCompare.EqualData = false;
                             }
-                            else if (row.CountTable1 != row.CountTable2)
+                            else if (tableToCompare.CountTable1 != tableToCompare.CountTable2)
                             {
-                                row.EqualData = false;
+                                tableToCompare.EqualData = false;
                             }
 
-                            if (row.EqualData.HasValue && !row.EqualData.Value)
+                            if (tableToCompare.EqualData.HasValue && !tableToCompare.EqualData.Value)
                             {
-                                this.bgwAnalyzer.ReportProgress(percentageTotalAvance, row);
+                                this.bgwAnalyzer.ReportProgress(percentageTotalAvance, tableToCompare);
                                 continue;
                             }
 
                             //DBManager dbManagerTo1 = null;
                             //DBManager dbManagerTo2 = null;
-                            
+
                             //Si es menos de 100 Megas se compara en memoria, de lo contrario en paquetes online
-                            if (row.Table1SizeNum / 1000000 < 100)
+                            if (tableToCompare.Table1SizeNum / FACTOR_MB < MB_100)
                             {
-                                this.CompareInMemory(e, row, ref num, percentageTotalAvance);
+                                this.CompareInMemory(e, tableToCompare, ref num, percentageTotalAvance);
                             }
                             else
                             {
-                                this.CompareOnline(e, row, ref num, percentageTotalAvance);
+                                tableToCompare.LoadedOnlySchema = true;
+                                this.CompareOnline(e, tableToCompare, ref num, percentageTotalAvance);
                             }
 
                         }
@@ -435,11 +459,11 @@ namespace SisnetDBComparer
 
                 //dbManagerTo1.SetDBManager(this.txtHost1.Text, namebd1, this.txtUser1.Text, this.txtPwd1.Text, false);
                 //dbManagerTo2.SetDBManager(this.txtHost2.Text, namebd2, this.txtUser2.Text, this.txtPwd2.Text, false);
-
                 string tablaOrigen = row.Table1;
                 string tablaDestino = row.Table2;
                 DataTable tabla1 = null;
                 DataTable tabla2 = null;
+
                 if (!string.IsNullOrEmpty(tablaOrigen) && !string.IsNullOrEmpty(tablaDestino))
                 {
                     //dbManagerTo1.OpenConnection();
@@ -493,7 +517,7 @@ namespace SisnetDBComparer
         }
 
 
-        private void CompareOnline(DoWorkEventArgs e, ItemDTO row, ref int num, int percentageTotalAvance)
+        private void CompareOnline(DoWorkEventArgs e, ItemDTO tableToCompare, ref int num, int percentageTotalAvance)
         {
             try
             {
@@ -504,29 +528,40 @@ namespace SisnetDBComparer
                 //dbManagerTo1.SetDBManager(this.txtHost1.Text, namebd1, this.txtUser1.Text, this.txtPwd1.Text, false);
                 //dbManagerTo2.SetDBManager(this.txtHost2.Text, namebd2, this.txtUser2.Text, this.txtPwd2.Text, false);
 
-                string tablaOrigen = row.Table1;
-                string tablaDestino = row.Table2;
+                string tablaOrigen = tableToCompare.Table1;
+                string tablaDestino = tableToCompare.Table2;
                 DataTable tabla1 = null;
                 DataTable tabla2 = null;
+
+                List<DataColumn> columnsKeys = null;
+
                 if (!string.IsNullOrEmpty(tablaOrigen) && !string.IsNullOrEmpty(tablaDestino))
                 {
                     //dbManagerTo1.OpenConnection();
-                    tabla1 = dbManager1.GetTableData(row.Table1);
-                    tabla1 = ReorderData(tabla1, row.Table1Keys);
+                    columnsKeys =
+                        (from string column in tableToCompare.Table1Keys
+                         select new DataColumn(column)).ToList();
+
+                    tabla1 = dbManager1.GetTableData(tableToCompare.Table1, columnsKeys);
+                    tabla1 = ReorderData(tabla1, tableToCompare.Table1Keys);
                 }
 
                 if (!string.IsNullOrEmpty(tablaDestino) && !string.IsNullOrEmpty(tablaOrigen))
                 {
+                    columnsKeys =
+                      (from string column in tableToCompare.Table2Keys
+                       select new DataColumn(column)).ToList();
+
                     //dbManagerTo2.OpenConnection();
-                    tabla2 = dbManager2.GetTableData(row.Table2);
-                    tabla2 = ReorderData(tabla2, row.Table2Keys);
+                    tabla2 = dbManager2.GetTableData(tableToCompare.Table2, columnsKeys);
+                    tabla2 = ReorderData(tabla2, tableToCompare.Table2Keys);
                 }
 
-                this.bgwAnalyzer.ReportProgress(percentageTotalAvance, row);
+                this.bgwAnalyzer.ReportProgress(percentageTotalAvance, tableToCompare);
                 // Comparar DataTables
-                row.EqualData = SonDataTablesIguales(tabla1, tabla2, false);
+                tableToCompare.EqualData = SonDataTablesIgualesOnline(tableToCompare, tabla1, tabla2, true);
 
-                this.bgwAnalyzer.ReportProgress(percentageTotalAvance, row);
+                this.bgwAnalyzer.ReportProgress(percentageTotalAvance, tableToCompare);
 
 
             }
@@ -534,7 +569,7 @@ namespace SisnetDBComparer
             {
                 Console.WriteLine("Error paralelo " + ex.Message);
                 String message = ex.Message + "\r\n";
-                message += "Context \r\nTabla:[" + row.Table1 + "] - [" + row.Table2 + "]";
+                message += "Context \r\nTabla:[" + tableToCompare.Table1 + "] - [" + tableToCompare.Table2 + "]";
 
                 throw new ApplicationException(message, ex);
             }
@@ -869,49 +904,61 @@ namespace SisnetDBComparer
 
             foreach (var tableToSync in tablesToSync)
             {
-
-                int count = num * 100 / tablesToSync.Count;
-
-                if (this.bgwSync.CancellationPending)
+                List<DataTable> dataTablesToSync;
+                try
                 {
-                    e.Cancel = true;
-                    return;
+                    int count = num * 100 / tablesToSync.Count;
+
+                    if (this.bgwSync.CancellationPending)
+                    {
+                        e.Cancel = true;
+                        return;
+                    }
+
+                    this.bgwSync.ReportProgress(count, new SyncResult
+                    {
+                        StatusSync = StatusSync.LoadingTables,
+                        //Index = i,
+                        Item = tableToSync
+                    });
+
+                    tableToSync.LoadedOnlySchema = false;
+                    dataTablesToSync = this.LoadTablesToSync(tableToSync);
+
+                    if (this.bgwSync.CancellationPending)
+                    {
+                        e.Cancel = true;
+                        return;
+                    }
+
+                    this.bgwSync.ReportProgress(count, new SyncResult
+                    {
+                        StatusSync = StatusSync.SyncMovingData,
+                        //Index = i,
+                        Item = tableToSync
+                    });
+
+                    this.SyncDataFromTable(tableToSync, dataTablesToSync[0], dataTablesToSync[1], true);
+
+                    this.bgwSync.ReportProgress(count, new SyncResult
+                    {
+                        StatusSync = StatusSync.SyncFinishTable,
+                        //Index = i,
+                        Item = tableToSync
+                    });
+
+                    num++;
                 }
-
-                this.bgwSync.ReportProgress(count, new SyncResult
+                catch (Exception ex)
                 {
-                    StatusSync = StatusSync.LoadingTables,
-                    //Index = i,
-                    Item = tableToSync
-                });
-
-                tableToSync.LoadedOnlySchema = false;
-                List<DataTable> dataTablesToSync = this.LoadTablesToSync(tableToSync);
-
-                if (this.bgwSync.CancellationPending)
-                {
-                    e.Cancel = true;
-                    return;
+                    throw ex;
                 }
-
-                this.bgwSync.ReportProgress(count, new SyncResult
+                finally
                 {
-                    StatusSync = StatusSync.SyncMovingData,
-                    //Index = i,
-                    Item = tableToSync
-                });
-
-                this.SyncDataFromTable(tableToSync, dataTablesToSync[0], dataTablesToSync[1], true);
-
-                this.bgwSync.ReportProgress(count, new SyncResult
-                {
-                    StatusSync = StatusSync.SyncFinishTable,
-                    //Index = i,
-                    Item = tableToSync
-                });
-
-                num++;
-
+                    dataTablesToSync = null;
+                    // Collect all generations of memory.
+                    GC.Collect();
+                }
             }
 
             // despues de sincronizadas las tablas se crean las foreign keys
@@ -919,6 +966,7 @@ namespace SisnetDBComparer
             this.CreateAllFK();
 
             this.bgwSync.ReportProgress(100, StatusSync.SyncDataFinished);
+
 
         }
 
@@ -988,10 +1036,13 @@ namespace SisnetDBComparer
             DataTable tabla1 = null;
             DataTable tabla2 = null;
             int remainingTasks = hsDt.Count;
-
-            if (tableToSync.CountTable2 == 0)
+            List<DataColumn> columnsKeys = null;
+            if (tableToSync.CountTable2 == 0 || tableToSync.Table1SizeNum / FACTOR_MB > MB_100)
             {
                 tableToSync.LoadedOnlySchema = true;
+                columnsKeys =
+                (from string column in tableToSync.Table1Keys
+                 select new DataColumn(column)).ToList();
             }
             foreach (DictionaryEntry itemTable in hsDt)
             {
@@ -1010,13 +1061,13 @@ namespace SisnetDBComparer
                         {
                             dbManagerTo1 = DBManager.GetInstance();
                             dbManagerTo1.SetDBManager(this.txtHost1.Text, namebd1, this.txtUser1.Text, this.txtPwd1.Text, false);
-                            tabla1 = dbManagerTo1.GetTableData(table, tableToSync.LoadedOnlySchema);
+                            tabla1 = dbManagerTo1.GetTableData(table, columnsKeys);
                         }
                         else if (!string.IsNullOrEmpty(table))
                         {
                             dbManagerTo2 = DBManager.GetInstance();
                             dbManagerTo2.SetDBManager(this.txtHost2.Text, namebd2, this.txtUser2.Text, this.txtPwd2.Text, false);
-                            tabla2 = dbManagerTo2.GetTableData(table, tableToSync.LoadedOnlySchema);
+                            tabla2 = dbManagerTo2.GetTableData(table, columnsKeys);
                         }
                     }
                     catch (Exception ex)
@@ -1031,8 +1082,10 @@ namespace SisnetDBComparer
                     {
                         dbManagerTo1 = null;
                         dbManagerTo2 = null;
+                        //Console.WriteLine("Finaliza HS " + remainingTasks);
                         if (Interlocked.Decrement(ref remainingTasks) == 0)
                         {
+                            //Console.WriteLine("Finaliza TOTAL HS " + remainingTasks);
                             // Todos los elementos se han procesado
                             resetEvent.Set();
                         }
@@ -1051,7 +1104,7 @@ namespace SisnetDBComparer
             List<DataTable> dataTables = new List<DataTable>() {
                 tabla1, tabla2
             };
-
+            resetEvent = null;
 
             return dataTables;
 
@@ -1195,6 +1248,256 @@ namespace SisnetDBComparer
 
         }
 
+        bool SonDataTablesIgualesOnline(ItemDTO tableToCompare, DataTable tabla1, DataTable tabla2, bool paintGridView)
+        {
+            if ((tabla1 != null && tabla2 == null) || (tabla1 == null && tabla2 != null) || (tabla1 == null && tabla2 == null))
+            {
+                return false;
+            }
+            // Verificar si tienen la misma cantidad de columnas
+            if (tabla1.Columns.Count != tabla2.Columns.Count)
+            {
+                return false;
+            }
+
+            // Verificar si tienen las mismas columnas y en el mismo orden
+            for (int i = 0; i < tabla1.Columns.Count; i++)
+            {
+                if (tabla1.Columns[i].ColumnName != tabla2.Columns[i].ColumnName ||
+                    tabla1.Columns[i].DataType != tabla2.Columns[i].DataType)
+                {
+                    return false;
+                }
+            }
+
+            // Verificar si tienen la misma cantidad de filas
+            if (tabla1.Rows.Count != tabla2.Rows.Count)
+            {
+                return false;
+            }
+
+            List<int> badRows = new List<int>();
+            int localRecord = 0;
+            // Definir el tamaño del subciclo (1000 en este caso)
+            int subcycleSize = 10;
+            int paquete = 1;
+
+            DataColumn[] primaryKey =
+                    (from DataColumn column in tabla2.Columns
+                     where tableToCompare.Table1Keys.Contains(column.ColumnName)
+                     select column).ToArray();
+
+            List<DataRow> tabla1Rows = (from DataRow row in tabla1.Rows select row).ToList();
+
+            // Iterar sobre la lista de 10 en 10 utilizando Take
+            for (int idRecord = 0; idRecord < tabla1Rows.Count; idRecord += subcycleSize)
+            {
+                try
+                {
+
+                    // Utilizando ThreadPool para simular Parallel.ForEach
+                    ManualResetEvent resetEvent = new ManualResetEvent(false);
+
+                    // Utilizar Take para obtener el subconjunto de 10 elementos
+                    IEnumerable<DataRow> subcycle;
+
+                    subcycle = tabla1Rows.Skip(idRecord).Take(subcycleSize);
+                    object[][] dataFilter = (from DataRow itemData in subcycle
+                                             select itemData.ItemArray).ToArray();
+
+                    DataTable tablePackage = this.dbManager1.GetTableData(tableToCompare.Table1, primaryKey.ToList(), dataFilter);
+                    subcycle = (from DataRow row in tablePackage.Rows select row).ToList();
+                    if (tableToCompare.CountTable2 != 0)
+                    {
+                        tabla2 = this.dbManager2.GetTableData(tableToCompare.Table1, primaryKey.ToList(), dataFilter);
+                    }
+
+                    tabla2.PrimaryKey = (from DataColumn column in tabla2.Columns
+                                         where tableToCompare.Table1Keys.Contains(column.ColumnName)
+                                         select column).ToArray();
+
+                    int remainingTasks = subcycle.Count();
+
+                    this.dbManager1.OpenConnection();
+                    this.dbManager2.OpenConnection();
+
+                    GroupNotified groupNotified = new GroupNotified();
+
+                    foreach (DataRow row in subcycle)
+                    {
+                        ThreadPool.QueueUserWorkItem((state) =>
+                        {
+                            try
+                            {
+                                // Verificar si los datos de las columnas son iguales
+                                int count = localRecord * 100 / tabla1.Rows.Count;
+                                DataRow rowTable1 = row;
+
+                                // Definir los valores de las columnas que conforman la clave primaria
+                                object[] valuesWithPrimaryKey;
+
+                                DataRow rowTable2;
+
+                                // si la tabla no tiene llave primaria se busca todos los datos del registro
+                                if (tabla2.PrimaryKey.Any())
+                                {
+                                    valuesWithPrimaryKey = (from DataColumn column in tabla2.PrimaryKey
+                                                            select rowTable1[column.ColumnName]).ToArray();
+                                    // Encontrar la fila con la clave primaria compuesta
+                                    rowTable2 = tabla2.Rows.Find(valuesWithPrimaryKey);
+                                }
+                                else
+                                {
+                                    valuesWithPrimaryKey = (from DataColumn column in tabla2.Columns
+                                                            select rowTable1[column.ColumnName]).ToArray();
+
+                                    string[] filterValues = (from DataColumn column in tabla2.Columns
+                                                             select GetFilterCondition(column, rowTable1[column.ColumnName])).ToArray();
+
+                                    string filter = string.Join($"{Environment.NewLine} AND ", filterValues);
+
+
+
+                                    rowTable2 = tabla2.Select(filter).FirstOrDefault();
+                                }
+
+
+
+                                //dbManagerTo2 = DBManager.GetInstance();
+
+                                //dbManagerTo2.SetDBManager(this.txtHost2.Text, namebd2, this.txtUser2.Text, this.txtPwd2.Text, false);
+
+                                // si no encuentra el registro, lo inserta
+                                if (rowTable2 == null)
+                                {
+                                    badRows.Add(1);
+                                }
+
+                                for (int j = 0; !badRows.Any() && j < tablePackage.Columns.Count; j++)
+                                {
+                                    if (rowTable1[j] is byte[])
+                                    {
+                                        if (!((byte[])rowTable1[j]).SequenceEqual((byte[])rowTable2[j]))
+                                        {
+                                            badRows.Add(1);
+                                            break;
+                                        }
+                                    }
+                                    else if (rowTable1[j] is DateTime && tablePackage.Columns[j].ExtendedProperties.ContainsKey("ProviderType"))
+                                    {
+                                        DateTime timeTable1 = (DateTime)rowTable1[j];
+                                        TimeSpan onlyHour1 = timeTable1.TimeOfDay;
+                                        if (rowTable2[j] == DBNull.Value)
+                                        {
+                                            badRows.Add(1);
+                                            break;
+                                        }
+                                        DateTime timeTable2 = (DateTime)rowTable2[j];
+                                        TimeSpan onlyHour2 = timeTable2.TimeOfDay;
+                                        if (!onlyHour1.Equals(onlyHour2))
+                                        {
+                                            badRows.Add(1);
+                                            //return;
+                                            break;
+                                        }
+                                    }
+                                    else if (!rowTable1[j].Equals(rowTable2[j]))
+                                    {
+                                        badRows.Add(1);
+                                        //return;
+                                        break;
+                                    }
+
+                                }
+
+                                lock (groupNotified)
+                                {
+                                    if (paintGridView && !groupNotified.IsNotified)
+                                    {
+                                        groupNotified.IsNotified = true;
+                                        //painting function
+                                        if (badRows.Contains(1))
+                                        {
+                                            this.bgwAnalyzer.ReportProgress(count,
+                                                    new ComparationResult
+                                                    {
+                                                        StatusDetails = StatusDetails.ComparacionBad,
+                                                        Index = localRecord,
+                                                        Item = tableToCompare
+                                                    }
+                                                );
+
+                                        }
+                                        else
+                                        {
+                                            this.bgwAnalyzer.ReportProgress(count,
+                                                    new ComparationResult
+                                                    {
+                                                        StatusDetails = StatusDetails.ComparacionOk,
+                                                        Index = localRecord,
+                                                        Item = tableToCompare
+                                                    }
+                                                );
+                                        }
+                                    }
+                                }
+
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine("Error paralelo " + ex.Message);
+                                String message = ex.Message + "\r\n";
+                                message += "Context \r\nTabla:[" + tableToCompare.Table1 + "] - [" + tableToCompare.Table2 + "]";
+
+                                throw new ApplicationException(message, ex);
+                            }
+                            finally
+                            {
+                                lock (groupNotified)
+                                {
+                                    localRecord++;
+                                }
+
+                                if (Interlocked.Decrement(ref remainingTasks) == 0)
+                                {
+                                    // Todos los elementos se han procesado
+                                    resetEvent.Set();
+                                }
+
+                            }
+                        }
+
+                        );
+
+                    }
+
+                    // Realiza la operación para cada elemento
+                    Console.WriteLine("Hilos lanzados de comparar paquete " + paquete);
+
+                    // Espera a que todos los elementos se procesen
+                    resetEvent.WaitOne();
+                    paquete++;
+
+                    if (badRows.Any())
+                        return false;
+                }
+                catch (Exception ex)
+                {
+                    throw ex;
+                }
+
+                finally
+                {
+                    this.dbManager1.CloseConnection();
+                    this.dbManager2.CloseConnection();
+                }
+
+            }
+
+            return true;
+        }
+
+
         private string GetFilterCondition(DataColumn column, object value)
         {
             if (value == DBNull.Value)
@@ -1215,20 +1518,20 @@ namespace SisnetDBComparer
 
 
         // Método para comparar dos DataTables
-        bool SyncDataFromTable(ItemDTO item, DataTable tabla1, DataTable tabla2, bool paintGridView)
+        bool SyncDataFromTable(ItemDTO tableToSync, DataTable tabla1, DataTable tabla2, bool paintGridView)
         {
-            string tableName = item.Table1;
+            string tableName = tableToSync.Table1;
 
             // si la tabla no existe se crea en el otro servidor.
             if (tabla2 == null)
             {
                 string createTableSentence = this.dbManager1.GetCreateSchemaTable(tableName);
                 this.dbManager2.ExecuteSentence(createTableSentence);
-                tabla2 = this.dbManager2.GetTableData(tableName);
+                tabla2 = this.dbManager2.GetTableData(tableName, null, null, true);
             }
 
             // Verificar si tienen la misma cantidad de columnas
-            if (tabla1.Columns.Count != tabla2.Columns.Count)
+            /*if (tabla1.Columns.Count != tabla2.Columns.Count)
             {
                 throw new ApplicationException("Columnas diferentes");
             }
@@ -1241,12 +1544,14 @@ namespace SisnetDBComparer
                 {
                     throw new ApplicationException("Columnas en orden diferente");
                 }
-            }
+            }*/
 
+            Exception globalException = null;
+            GroupNotified groupNotified = new GroupNotified();
 
-            tabla2.PrimaryKey =
+            DataColumn[] primaryKey =
                 (from DataColumn column in tabla2.Columns
-                 where item.Table1Keys.Contains(column.ColumnName)
+                 where tableToSync.Table1Keys.Contains(column.ColumnName)
                  select column).ToArray();
 
 
@@ -1260,7 +1565,7 @@ namespace SisnetDBComparer
                 + string.Join($",{Environment.NewLine}", columns.Select((localValue, indice) => $"@p{indice}").ToArray())
                 + ");";
 
-            string[] colsToDelete = (from DataColumn column in tabla2.PrimaryKey
+            string[] colsToDelete = (from DataColumn column in primaryKey
                                      select column.ColumnName).ToArray();
 
 
@@ -1269,139 +1574,301 @@ namespace SisnetDBComparer
                 + ";";
 
             List<int> badRows = new List<int>();
-            int percentajeLocalTable = 0;
+            int localRecord = 0;
 
             try
             {
-                this.dbManager1.OpenConnection();
-                this.dbManager2.OpenConnection();
+                //this.dbManager1.OpenConnection();
+                //this.dbManager2.OpenConnection();
 
-                for (int i = 0; i < tabla1.Rows.Count; i++)
+
+                // Definir el tamaño del subciclo (10 en este caso)
+                int subcycleSize = 1000;
+                int paquete = 1;
+
+                List<DataRow> tabla1Rows = (from DataRow row in tabla1.Rows select row).ToList();
+
+
+                // Iterar sobre la lista de 10 en 10 utilizando Take
+                for (int idRecord = 0; idRecord < tabla1Rows.Count; idRecord += subcycleSize)
                 {
-                    //coco
-                    int count = percentajeLocalTable * 100 / tabla1.Rows.Count;
-                    DataRow rowTable1 = tabla1.Rows[i];
-
-                    // Definir los valores de las columnas que conforman la clave primaria
-                    object[] valuesWithPrimaryKey;
-
-                    DataRow rowData;
-
-                    // si la tabla no tiene llave primaria se busca todos los datos del registro
-                    if (tabla2.PrimaryKey.Any())
+                    // Utilizando ThreadPool para simular Parallel.ForEach
+                    ManualResetEvent resetEvent = new ManualResetEvent(false);
+                    DataTable tablePackage;
+                    // Utilizar Take para obtener el subconjunto de 10 elementos
+                    IEnumerable<DataRow> subcycle;
+                    if (tableToSync.LoadedOnlySchema)
                     {
-                        valuesWithPrimaryKey = (from DataColumn column in tabla2.PrimaryKey
-                                                select rowTable1[column.ColumnName]).ToArray();
-                        // Encontrar la fila con la clave primaria compuesta
-                        rowData = tabla2.Rows.Find(valuesWithPrimaryKey);
+                        subcycle = tabla1Rows.Skip(idRecord).Take(subcycleSize);
+                        object[][] dataFilter = (from DataRow itemData in subcycle
+                                                 select itemData.ItemArray).ToArray();
+
+                        tablePackage = this.dbManager1.GetTableData(tableName, primaryKey.ToList(), dataFilter);
+                        subcycle = (from DataRow row in tablePackage.Rows select row).ToList();
+                        if (tableToSync.CountTable2 != 0)
+                        {
+                            tabla2 = this.dbManager2.GetTableData(tableName, primaryKey.ToList(), dataFilter);
+                        }
+
+                        columns = (from DataColumn column in tabla2.Columns
+                                   select column.ColumnName).ToArray();
+
+                        prepareInsert = $"INSERT INTO {tableName} ({Environment.NewLine}"
+                            + string.Join($",{Environment.NewLine}", columns)
+                            + $" {Environment.NewLine}) "
+                            + $" VALUES({Environment.NewLine}"
+                            + string.Join($",{Environment.NewLine}", columns.Select((localValue, indice) => $"@p{indice}").ToArray())
+                            + ");";
+
                     }
                     else
                     {
-                        valuesWithPrimaryKey = (from DataColumn column in tabla2.Columns
-                                                select rowTable1[column.ColumnName]).ToArray();
-
-                        string[] filterValues = (from DataColumn column in tabla2.Columns
-                                                 select GetFilterCondition(column, rowTable1[column.ColumnName])).ToArray();
-
-                        string filter = string.Join($"{Environment.NewLine} AND ", filterValues);
-
-
-
-                        rowData = tabla2.Select(filter).FirstOrDefault();
+                        subcycle = tabla1Rows.Skip(idRecord).Take(subcycleSize);
                     }
 
+                    tabla2.PrimaryKey = (from DataColumn column in tabla2.Columns
+                                         where tableToSync.Table1Keys.Contains(column.ColumnName)
+                                         select column).ToArray();
 
+                    int remainingTasks = subcycle.Count();
 
+                    this.dbManager1.OpenConnection();
+                    this.dbManager2.OpenConnection();
 
-                    // si no encuentra el registro, lo inserta
-                    if (rowData == null)
+                    foreach (DataRow row in subcycle)
                     {
-                        object[] dataToInsert = (from DataColumn column in tabla2.Columns
-                                                 select
-                                                 column.DataType == typeof(DateTime) && column.ExtendedProperties.Count > 0
-                                                 ? ExtractTime(rowTable1[column.ColumnName])
-                                                  :
-                                                 rowTable1[column.ColumnName]
-                                                     ).ToArray();
-
-
-                        this.dbManager2.ExecuteRecord(prepareInsert, dataToInsert);
-
-                    }
-                    // se comparan los datos y si alguno no coincide se borra el registro y se inserta
-                    else
-                    {
-                        bool equalDataRecord = true;
-
-                        for (int j = 0; j < tabla1.Columns.Count; j++)
+                        ThreadPool.QueueUserWorkItem((state) =>
                         {
-                            if (rowTable1[j] is byte[])
+                            //DBManager dbManagerTo1 = null;
+                            //DBManager dbManagerTo2 = null;
+                            object[] valuesWithPrimaryKey = null;
+                            object[] dataToInsert = null;
+                            try
                             {
-                                if (!((byte[])rowTable1[j]).SequenceEqual((byte[])rowData[j]))
+                                int count = localRecord * 100 / tabla1.Rows.Count;
+                                DataRow rowTable1 = row;
+
+                                // Definir los valores de las columnas que conforman la clave primaria
+
+
+                                DataRow rowData;
+                                /*
+                                Random random = new Random();
+                                int mseconds = random.Next(1, 4) * 1000;
+                                System.Threading.Thread.Sleep(mseconds);
+
+                                lock (groupNotified)
                                 {
-                                    equalDataRecord = false;
-                                    break;
+                                    if (localRecord == 75)
+                                    {
+                                        throw new Exception("rised");
+                                    }
+                                }
+                                */
+
+
+                                // si la tabla no tiene llave primaria se busca todos los datos del registro
+                                if (tabla2.PrimaryKey.Any())
+                                {
+                                    valuesWithPrimaryKey = (from DataColumn column in tabla2.PrimaryKey
+                                                            select rowTable1[column.ColumnName]).ToArray();
+                                    // Encontrar la fila con la clave primaria compuesta
+                                    rowData = tabla2.Rows.Find(valuesWithPrimaryKey);
+                                }
+                                else
+                                {
+                                    valuesWithPrimaryKey = (from DataColumn column in tabla2.Columns
+                                                            select rowTable1[column.ColumnName]).ToArray();
+
+                                    string[] filterValues = (from DataColumn column in tabla2.Columns
+                                                             select GetFilterCondition(column, rowTable1[column.ColumnName])).ToArray();
+
+                                    string filter = string.Join($"{Environment.NewLine} AND ", filterValues);
+
+
+
+                                    rowData = tabla2.Select(filter).FirstOrDefault();
+                                }
+
+
+
+                                //dbManagerTo2 = DBManager.GetInstance();
+
+                                //dbManagerTo2.SetDBManager(this.txtHost2.Text, namebd2, this.txtUser2.Text, this.txtPwd2.Text, false);
+
+                                // si no encuentra el registro, lo inserta
+                                if (rowData == null)
+                                {
+                                    dataToInsert = (from DataColumn column in tabla2.Columns
+                                                    select
+                                                    column.DataType == typeof(DateTime) && column.ExtendedProperties.Count > 0
+                                                    ? ExtractTime(rowTable1[column.ColumnName])
+                                                     :
+                                                    rowTable1[column.ColumnName]
+                                                                 ).ToArray();
+
+
+                                    this.dbManager2.ExecuteRecord(prepareInsert, dataToInsert);
+
+                                }
+                                // se comparan los datos y si alguno no coincide se borra el registro y se inserta
+                                else
+                                {
+                                    bool equalDataRecord = true;
+
+                                    for (int j = 0; j < tabla1.Columns.Count; j++)
+                                    {
+                                        if (rowTable1[j] is byte[])
+                                        {
+                                            if (!((byte[])rowTable1[j]).SequenceEqual((byte[])rowData[j]))
+                                            {
+                                                equalDataRecord = false;
+                                                break;
+                                            }
+                                        }
+                                        else if (rowTable1[j] is DateTime && tabla1.Columns[j].ExtendedProperties.ContainsKey("ProviderType"))
+                                        {
+
+                                            DateTime timeTable1 = (DateTime)rowTable1[j];
+                                            TimeSpan onlyHour1 = timeTable1.TimeOfDay;
+                                            if (rowData[j] == DBNull.Value)
+                                            {
+                                                equalDataRecord = false;
+                                                break;
+                                            }
+                                            DateTime timeTable2 = (DateTime)rowData[j];
+                                            TimeSpan onlyHour2 = timeTable2.TimeOfDay;
+                                            if (!onlyHour1.Equals(onlyHour2))
+                                            {
+                                                equalDataRecord = false;
+                                                break;
+                                            }
+
+
+                                        }
+                                        else if (!rowTable1[j].Equals(rowData[j]))
+                                        {
+                                            equalDataRecord = false;
+                                            break;
+                                        }
+                                    }
+
+                                    if (!equalDataRecord)
+                                    {
+                                        dataToInsert = (from DataColumn column in tabla2.Columns
+                                                        select
+                                                        column.DataType == typeof(DateTime) && column.ExtendedProperties.Count > 0
+                                                        ? ExtractTime(rowTable1[column.ColumnName])
+                                                         :
+                                                        rowTable1[column.ColumnName]
+                                                                 ).ToArray();
+
+                                        this.dbManager2.ExecuteRecord(prepareDelete, valuesWithPrimaryKey);
+                                        this.dbManager2.ExecuteRecord(prepareInsert, dataToInsert);
+
+                                    }
+
+                                }
+
+                                // para aumentar rendimiento se grafica cada 1000 registros
+                                if (paintGridView && localRecord % subcycleSize == 0)
+                                {
+                                    this.bgwSync.ReportProgress(count,
+                                            new SyncResult
+                                            {
+                                                Item = tableToSync,
+                                                StatusSync = StatusSync.SyncRow,
+                                                Index = localRecord
+                                            }
+                                        );
+                                }
+
+
+                            }
+                            catch (Exception ex)
+                            {
+                                lock (groupNotified)
+                                {
+                                    Console.WriteLine("Error paralelo " + ex.Message);
+                                    String message = ex.Message + "\r\n";
+                                    message += "Context \r\nTabla:[" + tableName + "] - [" + tableToSync.Table2 + "]";
+                                    message += " DataArray = ";
+                                    foreach (var dataItem in row.ItemArray)
+                                    {
+                                        if (dataItem is byte[])
+                                        {
+                                            message += "[bytes{" + ((byte[])dataItem).Length + "}],";
+                                        }
+                                        else if (dataItem != DBNull.Value)
+                                        {
+                                            message += dataItem + ",";
+                                        }
+                                        else
+                                        {
+                                            message += "null,";
+                                        }
+
+                                    }
+
+                                    message += Environment.NewLine + ex.StackTrace;
+                                    globalException = new ApplicationException(message, ex);
+                                    // Todos los elementos se han procesado
+                                    //resetEvent.Set();
                                 }
                             }
-                            else if (rowTable1[j] is DateTime && tabla1.Columns[j].ExtendedProperties.ContainsKey("ProviderType"))
+                            finally
                             {
+                                localRecord++;
+                                Console.WriteLine("Procesado " + localRecord + "->" +
+                                    (
+                                    valuesWithPrimaryKey == null ? string.Empty :
+                                    string.Join(",", valuesWithPrimaryKey.Select(p => p.ToString()).ToArray()))
+                                    )
+                                    ;
 
-                                DateTime timeTable1 = (DateTime)rowTable1[j];
-                                TimeSpan onlyHour1 = timeTable1.TimeOfDay;
-                                if (rowData[j] == DBNull.Value)
+                                valuesWithPrimaryKey = null;
+                                dataToInsert = null;
+                                // Collect all generations of memory.
+                                GC.Collect();
+
+                                /*
+                                if (dbManagerTo2 != null)
                                 {
-                                    equalDataRecord = false;
-                                    break;
+                                    dbManagerTo2.CloseConnection();
                                 }
-                                DateTime timeTable2 = (DateTime)rowData[j];
-                                TimeSpan onlyHour2 = timeTable2.TimeOfDay;
-                                if (!onlyHour1.Equals(onlyHour2))
+                                */
+                                if (Interlocked.Decrement(ref remainingTasks) == 0)
                                 {
-                                    equalDataRecord = false;
-                                    break;
+                                    // Todos los elementos se han procesado
+                                    resetEvent.Set();
                                 }
-
-
-                            }
-                            else if (!rowTable1[j].Equals(rowData[j]))
-                            {
-                                equalDataRecord = false;
-                                break;
                             }
                         }
+                        );
 
-                        if (!equalDataRecord)
-                        {
-                            object[] dataToInsert = (from DataColumn column in tabla2.Columns
-                                                     select
-                                                     column.DataType == typeof(DateTime) && column.ExtendedProperties.Count > 0
-                                                     ? ExtractTime(rowTable1[column.ColumnName])
-                                                      :
-                                                     rowTable1[column.ColumnName]
-                                                     ).ToArray();
 
-                            this.dbManager2.ExecuteRecord(prepareDelete, valuesWithPrimaryKey);
-                            this.dbManager2.ExecuteRecord(prepareInsert, dataToInsert);
-
-                        }
 
                     }
 
-                    // para aumentar rendimiento se grafica cada 1000 registros
-                    if (paintGridView && i % 1000 == 0)
+                    // Realiza la operación para cada elemento
+                    //Console.WriteLine("Hilos lanzados de sincronizar paquete " + paquete);
+
+                    // Espera a que todos los elementos se procesen
+                    resetEvent.WaitOne();
+                    subcycle = null;
+                    tablePackage = null;
+                    GC.Collect();
+
+                    // Thread.Sleep(3000);
+                    if (globalException != null)
                     {
-                        this.bgwSync.ReportProgress(count,
-                                new SyncResult
-                                {
-                                    Item = item,
-                                    StatusSync = StatusSync.SyncRow,
-                                    Index = i
-                                }
-                            );
+                        throw globalException;
                     }
 
-                    percentajeLocalTable++;
+                    paquete++;
+
                 }
+
             }
             catch (Exception ex)
             {
@@ -1795,16 +2262,17 @@ namespace SisnetDBComparer
                 {
                     case StatusSync.LoadingTables:
                         this.lblStatusDetails.Text = $"Cargando tabla {syncResult.Item.Table1}";
+                        this.EnsureVisibleDetailSync(syncResult.Item.Index, false);
                         break;
                     case StatusSync.SyncMovingData:
                         this.lblStatusDetails.Text = $"Moviendo datos tabla {syncResult.Item.Table1}";
                         break;
                     case StatusSync.SyncRow:
-                        this.lblStatusDetails.Text = $"{syncResult.Item.Table1} {syncResult.Index}";
+                        this.lblStatusDetails.Text = $"Moviendo {syncResult.Item.Table1} {syncResult.Index}";
                         break;
                     case StatusSync.SyncFinishTable:
                         this.lblStatusDetails.Text = $"Tabla sincronizada {syncResult.Item.Table1}";
-                        this.EnsureVisibleDeitalSync(syncResult.Index);
+                        this.EnsureVisibleDetailSync(syncResult.Item.Index, true);
                         break;
                     default:
                         break;
@@ -1812,14 +2280,23 @@ namespace SisnetDBComparer
             }
         }
 
-        private void EnsureVisibleDeitalSync(int index) {
-            ListViewItem viewItem = (from ListViewItem item
-                in this.lvComparer.Items
-                                     where string.Compare(index.ToString(), item.SubItems[(int)ColIndexDetail.Index].Text) == 0
-                                     select item).Single();
+        private void EnsureVisibleDetailSync(int index, bool isSucces)
+        {
 
-            viewItem.ImageIndex = (int)Utils.Status.Verde;
-            viewItem.EnsureVisible();
+            ListViewItem viewItem = (from ListViewItem item
+                in this.lvDetailTables.Items
+                                     where string.Compare((index + 1).ToString(), item.SubItems[(int)ColIndexDetail.Index].Text) == 0
+                                     select item).SingleOrDefault();
+            if (viewItem != null)
+            {
+                if (isSucces)
+                {
+                    viewItem.ImageIndex = (int)Utils.Status.Equal;
+                }
+
+                viewItem.EnsureVisible();
+            }
+
 
         }
 
@@ -1872,6 +2349,35 @@ namespace SisnetDBComparer
             // Actualizar la vista
             //((System.Windows.Forms.ListView)sender).Refresh();
             ((System.Windows.Forms.ListView)sender).ListViewItemSorter = comparer;
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                for (int i = 1; i <= 1; i++)
+                {
+                    using (FileStream fileStream = new FileStream("C:\\Users\\USUARIO.DESKTOP-DIEGO\\Downloads\\Fanapo.rar", FileMode.Open, FileAccess.Read))
+                    {
+                        using (BinaryReader binaryReader = new BinaryReader(new BufferedStream(fileStream)))
+                        {
+                            byte[] numArray = binaryReader.ReadBytes(Convert.ToInt32(fileStream.Length));
+                            this.dbManager1.InsertArchivo((i + 1).ToString(), numArray);
+                            numArray = null;
+                            // Collect all generations of memory.
+                            GC.Collect();
+                        }
+                    }
+                }
+
+                MessageBox.Show("Archivos guardados");
+            }
+            catch (Exception ex)
+            {
+
+                MessageBox.Show("Error " + ex.Message);
+
+            }
         }
     }
 

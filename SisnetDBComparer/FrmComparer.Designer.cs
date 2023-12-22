@@ -117,6 +117,7 @@
             this.bgwDetails = new System.ComponentModel.BackgroundWorker();
             this.bgwSync = new System.ComponentModel.BackgroundWorker();
             this.toolTipSincronizer = new System.Windows.Forms.ToolTip(this.components);
+            this.button1 = new System.Windows.Forms.Button();
             this.groupBox1.SuspendLayout();
             this.groupBox2.SuspendLayout();
             this.tbComparador.SuspendLayout();
@@ -374,6 +375,7 @@
             // 
             // tabPageConexion
             // 
+            this.tabPageConexion.Controls.Add(this.button1);
             this.tabPageConexion.Controls.Add(this.pictureBox1);
             this.tabPageConexion.Controls.Add(this.btnConectar);
             this.tabPageConexion.Controls.Add(this.groupBox1);
@@ -1000,6 +1002,16 @@
             this.bgwSync.ProgressChanged += new System.ComponentModel.ProgressChangedEventHandler(this.bgwSync_ProgressChanged);
             this.bgwSync.RunWorkerCompleted += new System.ComponentModel.RunWorkerCompletedEventHandler(this.bgwSync_RunWorkerCompleted);
             // 
+            // button1
+            // 
+            this.button1.Location = new System.Drawing.Point(242, 261);
+            this.button1.Name = "button1";
+            this.button1.Size = new System.Drawing.Size(176, 23);
+            this.button1.TabIndex = 10;
+            this.button1.Text = "Guardar 100 arcivos";
+            this.button1.UseVisualStyleBackColor = true;
+            this.button1.Click += new System.EventHandler(this.button1_Click);
+            // 
             // FrmComparer
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -1060,7 +1072,8 @@
         private System.Windows.Forms.Button btnConectar;
         private System.Windows.Forms.TabControl tbComparador;
         private System.Windows.Forms.TabPage tabPageConexion;
-        private System.Windows.Forms.TabPage tabPageComparer;
+        private System.Windows.Forms.TabPage 
+            tabPageComparer;
         private System.Windows.Forms.TabPage tabPageDetail;
         private System.Windows.Forms.Label lblEstado1;
         private System.Windows.Forms.Label lblStatus1;
@@ -1125,6 +1138,7 @@
         private System.Windows.Forms.ToolTip toolTipSincronizer;
         private System.Windows.Forms.Label label12;
         private System.Windows.Forms.Label label13;
+        private System.Windows.Forms.Button button1;
     }
 }
 

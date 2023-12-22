@@ -50,6 +50,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Dto\ComparationResult.cs" />
+    <Compile Include="Dto\GroupNotified.cs" />
     <Compile Include="Dto\ItemDTO.cs" />
     <Compile Include="Dto\SyncResult.cs" />
     <Compile Include="FrmComparer.cs">

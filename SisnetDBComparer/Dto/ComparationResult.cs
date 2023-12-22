@@ -6,6 +6,8 @@ namespace SisnetDBComparer.Dto
     {
         public StatusDetails StatusDetails { get; set; }
         public int Index { get; set; }
+        public ItemDTO Item { get; internal set; }
+
 
     }
 }
