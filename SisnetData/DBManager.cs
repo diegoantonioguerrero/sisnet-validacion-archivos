@@ -8,6 +8,8 @@ using System.Linq;
 using System.ComponentModel;
 using System.Threading;
 //using Mono.Security.Cryptography;
+using System.Data.Odbc;
+using System.Text.RegularExpressions;
 
 namespace SisnetData
 {
@@ -16,6 +18,8 @@ namespace SisnetData
         public static DBManager _self;
 
         private NpgsqlConnection connection;
+
+        public string ServerVersion { get; private set; }
 
         public DBManager()
         {
@@ -331,10 +335,11 @@ namespace SisnetData
                 try
                 {
                     this.OpenConnection();
-                    string sqlTables = @"SELECT table_name, pg_size_pretty(pg_total_relation_size(table_name)) AS size_text, pg_total_relation_size(table_name) AS size
+                    string sqlTables = @"SELECT table_name, pg_size_pretty(pg_total_relation_size('""' || table_name || '""')) AS size_text, 
+                            pg_total_relation_size('""' || table_name || '""') AS size
                         FROM information_schema.tables 
                         WHERE table_schema = 'public' 
-                                and table_name = 'imagenesanexas'
+         --                       and table_name = 'auditoriasistemaarchivo'
                         order by table_name
  --limit 70
 ;";
@@ -433,6 +438,59 @@ namespace SisnetData
             }
         }
 
+        public string GetServerVersion()
+        {
+            try
+            {
+                this.connection.Open();
+
+                using (NpgsqlCommand cmd = new NpgsqlCommand("SELECT version();", this.connection))
+                {
+                    object result = cmd.ExecuteScalar();
+
+                    if (result != null)
+                    {
+                        Console.WriteLine("Versión de PostgreSQL: " + result.ToString());
+                        // Patrón de expresión regular
+                        string pattern = @"PostgreSQL (\d+(\.\d+)?)";
+
+                        // Coincidencias
+                        Match match = Regex.Match(result.ToString(), pattern);
+
+                        if (match.Success)
+                        {
+                            // El número después de "PostgreSQL"
+                            string versionNumber = match.Groups[1].Value;
+                            Console.WriteLine("Versión de PostgreSQL: " + versionNumber);
+                            return versionNumber;
+
+                        }
+                        else
+                        {
+                            throw new ApplicationException("No se encontró una versión de PostgreSQL en la cadena.");
+                        }
+                    }
+
+                    string error = "No se pudo obtener la versión de PostgreSQL.";
+                    Console.WriteLine(error);
+                    throw new ApplicationException(error);
+
+                }
+
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+            finally
+            {
+                if (this.connection.State == ConnectionState.Open)
+                {
+                    this.connection.Close();
+                }
+            }
+        }
+
 
         public void Insert(string fileName, byte[] ImgByteA)
         {
@@ -449,18 +507,56 @@ namespace SisnetData
 
         public void InsertArchivo(string id, byte[] ImgByteA)
         {
-            
+
             NpgsqlCommand npgsqlCommand = new NpgsqlCommand()
             {
                 CommandText = string.Concat("insert into abarchivos (idarchivo, archivo) VALUES ('" + id + "', @Image)"),
                 Connection = this.connection
             };
-            npgsqlCommand.Parameters.Add(new NpgsqlParameter("Image", ImgByteA));
+            NpgsqlParameter param = new NpgsqlParameter("Image", ImgByteA);
+            param.DbType = DbType.Binary;
+            npgsqlCommand.Parameters.Add(param);
             this.connection.Open();
             npgsqlCommand.ExecuteNonQuery();
             this.connection.Close();
-            
-            
+
+
+        }
+
+        public void InsertArchivoOdbc(string id, byte[] ImgByteA)
+        {
+            // Setup a connection string
+            string connectionString = "DSN=pgAnapo;" +
+                               "UID=postgres;" +
+                               "PWD=postgres";
+            using (OdbcConnection connection = new OdbcConnection(connectionString))
+            {
+                try
+                {
+                    connection.Open();
+
+                    // Consulta SQL para la inserción
+                    string sqlQuery = "INSERT INTO abarchivos (idarchivo, archivo) VALUES (?, ?)";
+
+                    using (OdbcCommand command = new OdbcCommand(sqlQuery, connection))
+                    {
+                        // Parámetros para la consulta
+                        command.Parameters.Add("id", OdbcType.Int).Value = id;
+                        command.Parameters.Add("img", OdbcType.Binary).Value = ImgByteA;
+
+                        // Ejecutar la consulta de inserción
+                        int rowsAffected = command.ExecuteNonQuery();
+
+                        Console.WriteLine(rowsAffected + " fila(s) insertada(s) correctamente.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Error al insertar datos: " + ex.Message);
+                }
+            }
+
+
         }
 
 
@@ -477,17 +573,20 @@ namespace SisnetData
             this.connection.Close();
         }
 
-        public void SetDBManager(string ip, string db, string user, string pwd, bool testConnection = true)
+
+
+        public void SetDBManager(string ip, string port, string db, string user, string pwd, bool testConnection = true)
         {
             try
             {
-                this.connection = new NpgsqlConnection(string.Concat(new string[] { "Server=", ip, ";Port=5432;User ID=", user, ";Password=", pwd, ";Database=", db }));
+                this.connection = new NpgsqlConnection(string.Concat(new string[] { "Server=", ip, ";Port=" + port + ";User ID=", user, ";Password=", pwd, ";Database=", db }));
                 if (!testConnection)
                 {
                     return;
                 }
                 this.OpenConnection();
                 this.connection.Close();
+                this.ServerVersion = GetServerVersion();
             }
             catch (Exception exception)
             {
@@ -705,6 +804,38 @@ ALTER TABLE {0}_nueva RENAME TO {0};";
             }
         }
 
+        public void OpenConnectionODBC(OdbcConnection connection)
+        {
+            int reintentos = 4;
+            while (reintentos >= 0)
+            {
+                try
+                {
+                    if (connection != null && connection.State != ConnectionState.Open)
+                    {
+                        connection.Open();
+                        reintentos = -1;
+                    }
+                }
+                catch (Exception ex)
+                {
+
+                    Console.WriteLine("Error OpenConnection");
+                    if (reintentos == 0)
+                    {
+                        throw ex;
+                    }
+                    // duerme 1 segundo para reintentar conexion
+                    Thread.Sleep(1000);
+
+                }
+                finally
+                {
+                    reintentos--;
+                }
+            }
+        }
+
         public void CloseConnection()
         {
             if (this.connection != null && this.connection.State == ConnectionState.Open)
@@ -716,7 +847,6 @@ ALTER TABLE {0}_nueva RENAME TO {0};";
         {
             DataTable table = new DataTable();
             bool openLocalConexion = false;
-
             try
             {
                 if (this.connection.State != ConnectionState.Open)
@@ -729,17 +859,18 @@ ALTER TABLE {0}_nueva RENAME TO {0};";
                 int reintentos = 2;
                 while (reintentos >= 0)
                 {
+                    string[] fieldsToSelect = null;
                     try
                     {
-                        string[] fieldsToSelect = null;
+
                         string fields = "*";
-                        if (columnsKeys != null)
+                        if (columnsKeys != null && columnsKeys.Any())
                         {
                             fieldsToSelect = (from DataColumn column in columnsKeys
                                               select column.ColumnName).ToArray();
                         }
 
-                        if (columnsKeys != null && filterData == null)
+                        if (columnsKeys != null && columnsKeys.Any() && filterData == null)
                         {
                             fields = string.Join(",", fieldsToSelect);
                         }
@@ -750,7 +881,7 @@ ALTER TABLE {0}_nueva RENAME TO {0};";
                         if (filterData != null)
                         {
                             string[] dataToSelect = (from object[] data in filterData
-                                                     select GenerateFilter(fieldsToSelect, data)).ToArray();
+                                                     select GenerateFilter(columnsKeys, data)).ToArray();
                             sql += " WHERE " + string.Join(" OR ", dataToSelect);
                         }
 
@@ -758,10 +889,10 @@ ALTER TABLE {0}_nueva RENAME TO {0};";
                         {
                             sql += " WHERE 1=2 ";
                         }
-                        if (!sql.Contains("WHERE"))
+                        /*if (!sql.Contains("WHERE"))
                         {
-                            sql += " where fldidimagenesanexas = 6967 ";
-                        }
+                            sql += " where fldidimagenesanexas between 37055 and 38060 ";
+                        }*/
                         sql += " ORDER BY 1;";
                         using (NpgsqlCommand command = new NpgsqlCommand(sql, this.connection))
                         {
@@ -778,9 +909,17 @@ ALTER TABLE {0}_nueva RENAME TO {0};";
                                     {
                                         columnAdded.ExtendedProperties.Add("ProviderType", "time");
                                     }
+                                    else if (row["ProviderType"].ToString() == "date")
+                                    {
+                                        columnAdded.ExtendedProperties.Add("ProviderType", "date");
+                                    }
+
+                                    if (columnAdded.DataType == typeof(DateTime) && columnAdded.ExtendedProperties.Count == 0)
+                                    {
+                                        throw new ApplicationException("Unsuported time");
+                                    }
 
                                 }
-
                                 table.Load(npgsqlDataReader);
                             }
                         }
@@ -789,6 +928,14 @@ ALTER TABLE {0}_nueva RENAME TO {0};";
                     }
                     catch (Exception ex)
                     {
+                        if (ex is NpgsqlException)
+                        {
+                            NpgsqlException npgsqlException = (NpgsqlException)ex;
+                            if (npgsqlException.Code == "53200" || npgsqlException.Code == "XX000")
+                            {
+                                return this.GetTableDataODBC(tableName, columnsKeys, filterData);
+                            }
+                        }
                         Console.WriteLine("Error GetTableData -> " + ex.Message);
                         if (reintentos == 0)
                         {
@@ -805,8 +952,10 @@ ALTER TABLE {0}_nueva RENAME TO {0};";
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Error GetTableData " + tableName + " -> " + ex.Message);
-                throw ex;
+                string context = "Error GetTableData " + tableName + " -> " + ex.Message;
+                //+ "\r\n\r\n" + ctx;
+                Console.WriteLine(context);
+                throw new ApplicationException(context, ex);
             }
             finally
             {
@@ -820,13 +969,168 @@ ALTER TABLE {0}_nueva RENAME TO {0};";
 
         }
 
-        private string GenerateFilter(string[] fieldsToSelect, object[] data)
+        public DataTable GetTableDataODBC(string tableName, List<DataColumn> columnsKeys, object[][] filterData = null)
         {
-            string[] filterKeys =
-                fieldsToSelect.Select((valor, indice) =>
-                                $"({valor} = '" + data[indice] + "')").ToArray();
+            Console.WriteLine("GetTableDataODBC -> " + tableName);
+            DataTable table = new DataTable();
+            bool openLocalConexion = false;
+            OdbcConnection connection = GetODBCConnectionOrigen();
 
-            return string.Join(" AND ", filterKeys);
+            try
+            {
+                if (connection.State != ConnectionState.Open)
+                {
+                    OpenConnectionODBC(connection);
+                    openLocalConexion = true;
+                }
+
+
+                int reintentos = 2;
+                while (reintentos >= 0)
+                {
+                    try
+                    {
+                        //string[] fieldsToSelect = null;
+                        string fields = "*";
+                        /*if (columnsKeys != null)
+                        {
+                            fieldsToSelect = (from DataColumn column in columnsKeys
+                                              select column.ColumnName).ToArray();
+                        }
+                        
+                        if (columnsKeys != null && filterData == null)
+                        {
+                            fields = string.Join(",", fieldsToSelect);
+                        }
+                        */
+
+                        string sql = $"SELECT {fields} FROM {tableName}";
+
+                        if (filterData != null)
+                        {
+                            string[] dataToSelect = (from object[] data in filterData
+                                                     select GenerateFilter(columnsKeys, data)).ToArray();
+                            sql += " WHERE " + string.Join(" OR ", dataToSelect);
+                        }
+                        /*
+                        if (!sql.Contains("WHERE"))
+                        {
+                            sql += " where fldidimagenesanexas between 37055 and 38060 ";
+                        }
+                        */
+                        sql += " ORDER BY 1;";
+                        using (OdbcCommand command = new OdbcCommand(sql, connection))
+                        {
+                            command.CommandTimeout = 60 * 20;
+                            using (OdbcDataReader npgsqlDataReader = command.ExecuteReader())
+                            {
+                                DataTable schema = npgsqlDataReader.GetSchemaTable();
+                                foreach (DataRow row in schema.Rows)
+                                {
+                                    DataColumn columnAdded = table.Columns.Add(row["ColumnName"].ToString(), (Type)row["DataType"]);
+                                    if (row["ProviderType"].ToString() == "time")
+                                    {
+                                        columnAdded.ExtendedProperties.Add("ProviderType", "time");
+                                    }
+                                    else if (row["ProviderType"].ToString() == "date")
+                                    {
+                                        columnAdded.ExtendedProperties.Add("ProviderType", "date");
+                                    }
+                                }
+
+                                table.Load(npgsqlDataReader);
+                            }
+                        }
+                        reintentos = -1;
+
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine("Error GetTableData ODBC -> " + ex.Message);
+                        if (reintentos == 0)
+                        {
+                            throw ex;
+                        }
+
+                    }
+                    finally
+                    {
+                        reintentos--;
+                    }
+                }
+
+            }
+            catch (Exception ex)
+            {
+                string context = "Error GetTableData ODBC " + tableName + " -> " + ex.Message;
+                Console.WriteLine(context);
+                throw new ApplicationException(context, ex);
+            }
+            finally
+            {
+                if (openLocalConexion && connection.State == ConnectionState.Open)
+                {
+                    connection.Close();
+                }
+            }
+
+            return table;
+
+        }
+        public static object ExtractTime(DataColumn column, object theTime)
+        {
+            try
+            {
+                if (theTime == DBNull.Value)
+                    return theTime;
+
+                DateTime time = (DateTime)theTime;
+                if (column.ExtendedProperties["ProviderType"].ToString() == "time")
+                {
+                    TimeSpan onlyHour = time.TimeOfDay;
+                    return onlyHour;
+                }
+                else if (column.ExtendedProperties["ProviderType"].ToString() == "date")
+                {
+                    string onlyDate = time.Date.ToString("yyyy-MM-dd");
+                    return onlyDate;
+                }
+
+                throw new ApplicationException("DateNot supported");
+
+            }
+            catch (Exception)
+            {
+                Console.WriteLine("Error en registro ");
+                throw;
+            }
+
+        }
+
+        private string GenerateFilter(List<DataColumn> fieldsToSelect, object[] data)
+        {
+            if (fieldsToSelect == null || !fieldsToSelect.Any())
+                return string.Empty;
+
+            string[] filterKeys =
+                fieldsToSelect.Select((column, indice) =>
+                                column.ExtendedProperties.Count == 0 ?
+                                ExtractValue(column, data[indice])
+                                :
+                                $"({column.ColumnName} = '" + ExtractTime(column, data[indice]) + "')"
+                                ).ToArray();
+
+            return "( " + string.Join(" AND ", filterKeys) + " )";
+        }
+
+        private string ExtractValue(DataColumn column, object data)
+        {
+            if (data == DBNull.Value)
+            {
+                return $"({column.ColumnName} IS NULL)";
+            }
+            return $"({column.ColumnName} = '" + data + "')";
+
         }
 
         public string GetCreateSchemaTable(string tableName)
@@ -1198,7 +1502,12 @@ ALTER TABLE {0}_nueva RENAME TO {0};";
                     catch (Exception ex)
                     {
 
-                        Console.WriteLine("Error ExecuteSentence -> " + sqlSentence + ex.Message);
+                        if (ex is NpgsqlException && ((NpgsqlException)ex).Code == "42804")
+                        {
+                            NpgsqlException ngpEx = (NpgsqlException)ex;
+                            throw new ApplicationException(ngpEx.Code + " " + ngpEx.Detail, ex);
+                        }
+
                         if (reintentos == 0)
                         {
                             throw ex;
@@ -1214,7 +1523,7 @@ ALTER TABLE {0}_nueva RENAME TO {0};";
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Error ExecutingSentence -> " + sqlSentence + " -> " + ex.Message);
+                //Console.WriteLine("Error ExecutingSentence -> " + sqlSentence + " -> " + ex.Message);
                 throw ex;
             }
             finally
@@ -1230,7 +1539,6 @@ ALTER TABLE {0}_nueva RENAME TO {0};";
         public void ExecuteRecord(string preparedStatement, object[] data)
         {
             bool openLocalConexion = false;
-            string context = "1";
             try
             {
                 if (this.connection.State != ConnectionState.Open)
@@ -1249,16 +1557,12 @@ ALTER TABLE {0}_nueva RENAME TO {0};";
                         {
                             using (NpgsqlCommand command = new NpgsqlCommand(preparedStatement, this.connection))
                             {
-                                context += "2";
                                 var parameters =
                                     data.Select((valor, indice) =>
                                     new NpgsqlParameter($"p{indice}", valor)).ToArray();
 
-                                context += "3";
                                 command.Parameters.AddRange(parameters);
-                                context += "4";
                                 command.ExecuteNonQuery();
-                                context += "5";
                             }
                         }
                         reintentos = -1;
@@ -1266,7 +1570,15 @@ ALTER TABLE {0}_nueva RENAME TO {0};";
                     }
                     catch (Exception ex)
                     {
-                        context += "6" + ex.Message;
+                        if (ex is NpgsqlException)
+                        {
+                            NpgsqlException npgsqlException = (NpgsqlException)ex;
+                            if (npgsqlException.Code == "53200" || npgsqlException.Code == "XX000")
+                            {
+                                this.ExecuteRecordODBC(preparedStatement, data);
+                                return;
+                            }
+                        }
                         Console.WriteLine("Error ExecuteRecord -> " + preparedStatement + ex.Message);
                         if (reintentos == 0)
                         {
@@ -1283,15 +1595,95 @@ ALTER TABLE {0}_nueva RENAME TO {0};";
             }
             catch (Exception ex)
             {
-                context += "7" + ex.Message;
-                Console.WriteLine("Error ExecuteRecord -> " + preparedStatement + " -> " + ex.Message);
-                throw new ApplicationException(ex.Message + context, ex);
+                string context = "Error ExecuteRecord -> " + preparedStatement + " -> " + ex.Message;
+                Console.WriteLine(context);
+                throw new ApplicationException(context, ex);
             }
             finally
             {
                 if (openLocalConexion && this.connection.State == ConnectionState.Open)
                 {
                     this.connection.Close();
+                }
+            }
+        }
+
+        public void ExecuteRecordODBC(string preparedStatement, object[] data)
+        {
+            Console.WriteLine("ExecuteRecordODBC -> " + preparedStatement);
+            bool openLocalConexion = false;
+            OdbcConnection connection = GetODBCConnectionDestino();
+
+            try
+            {
+                if (connection.State != ConnectionState.Open)
+                {
+                    OpenConnectionODBC(connection);
+                    openLocalConexion = true;
+                }
+
+
+                int reintentos = 2;
+                while (reintentos >= 0)
+                {
+                    try
+                    {
+                        lock (connection)
+                        {
+                            for (int i = 0; ; i++)
+                            {
+                                string search = "@p" + i;
+                                if (preparedStatement.IndexOf(search) > 0)
+                                {
+                                    preparedStatement = preparedStatement.Replace(search, "?");
+                                }
+                                else
+                                {
+                                    break;
+                                }
+                            }
+
+                            using (OdbcCommand command = new OdbcCommand(preparedStatement, connection))
+                            {
+                                command.CommandTimeout = 60 * 20;
+                                var parameters =
+                                    data.Select((valor, indice) =>
+                                    new OdbcParameter($"?p{indice}", valor)).ToArray();
+
+                                command.Parameters.AddRange(parameters);
+                                command.ExecuteNonQuery();
+                            }
+                        }
+                        reintentos = -1;
+
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine("Error ExecuteRecord -> " + preparedStatement + ex.Message);
+                        if (reintentos == 0)
+                        {
+                            throw ex;
+                        }
+
+                    }
+                    finally
+                    {
+                        reintentos--;
+                    }
+                }
+
+            }
+            catch (Exception ex)
+            {
+                string context = "Error ExecuteRecord ODBC -> " + preparedStatement + " -> " + ex.Message;
+                Console.WriteLine(context);
+                throw new ApplicationException(context, ex);
+            }
+            finally
+            {
+                if (openLocalConexion && connection.State == ConnectionState.Open)
+                {
+                    connection.Close();
                 }
             }
         }
@@ -1471,6 +1863,31 @@ ALTER TABLE {0}_nueva RENAME TO {0};";
             return table;
         }
 
+        private OdbcConnection GetODBCConnectionOrigen()
+        {
+            // Setup a connection string
+            string connectionString = "DSN=sisnet64_origen;" +
+                               "UID=postgres;" +
+                               "PWD=postgres;" +
+                               "Database=" + this.connection.Database + ";";
+
+            OdbcConnection connection = new OdbcConnection(connectionString);
+            return connection;
+
+        }
+
+        private OdbcConnection GetODBCConnectionDestino()
+        {
+            // Setup a connection string
+            string connectionString = "DSN=sisnet64_destino;" +
+                               "UID=postgres;" +
+                               "PWD=postgres;" +
+                               "Database=" + this.connection.Database + ";";
+
+            OdbcConnection connection = new OdbcConnection(connectionString);
+            return connection;
+
+        }
 
     }
 }

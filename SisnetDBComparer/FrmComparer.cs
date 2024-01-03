@@ -12,6 +12,7 @@ using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -20,6 +21,7 @@ using System.Windows.Forms;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.Button;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.ProgressBar;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
 
 namespace SisnetDBComparer
 {
@@ -76,15 +78,15 @@ namespace SisnetDBComparer
                 this.lblStatus2.Text = "Conectando...";
                 this.lblStatus2.ForeColor = Color.Blue;
 
-                dBManager.SetDBManager(this.txtHost1.Text, "", this.txtUser1.Text, this.txtPwd1.Text);
+                dBManager.SetDBManager(this.txtHost1.Text, this.txtPort1.Text, "", this.txtUser1.Text, this.txtPwd1.Text);
                 this.conexionExitosa1 = true;
-                this.lblStatus1.Text = "Conectado";
+                this.lblStatus1.Text = "Conectado " + dBManager.ServerVersion;
                 this.lblStatus1.ForeColor = Color.Green;
 
 
-                dBManager.SetDBManager(this.txtHost2.Text, "", this.txtUser2.Text, this.txtPwd2.Text);
+                dBManager.SetDBManager(this.txtHost2.Text, this.txtPort2.Text, "", this.txtUser2.Text, this.txtPwd2.Text);
                 this.conexionExitosa2 = true;
-                this.lblStatus2.Text = "Conectado";
+                this.lblStatus2.Text = "Conectado " + dBManager.ServerVersion;
                 this.lblStatus2.ForeColor = Color.Green;
 
                 // Limpiar el ListView
@@ -92,13 +94,13 @@ namespace SisnetDBComparer
                 this.cmbBD2.Items.Clear();
 
                 List<string> dbs1 = this.GetDBManager(Conexion.Conexion1).GetBds();
-                List<string> dbs2 = this.GetDBManager(Conexion.Conexion1).GetBds();
+                List<string> dbs2 = this.GetDBManager(Conexion.Conexion2).GetBds();
 
                 this.cmbBD1.Items.AddRange(dbs1.ToArray());
                 this.cmbBD2.Items.AddRange(dbs2.ToArray());
 
                 this.cmbBD1.SelectedItem = "Fanapopequeweb";
-                this.cmbBD2.SelectedItem = "Fanapofullweb";
+                this.cmbBD2.SelectedItem = "aapruebaweb";
 
                 this.tbComparador.SelectedTab = this.tabPageComparer;
 
@@ -115,7 +117,7 @@ namespace SisnetDBComparer
                     this.lblStatus2.Text = "Error" + (!this.conexionExitosa1 ? " (Resuelva conexión 1)" : "");
                     this.lblStatus2.ForeColor = Color.Red;
                 }
-
+                Console.WriteLine(exception2.Message);
                 MessageBox.Show(exception2.Message, "Error de conexión", MessageBoxButtons.OK, MessageBoxIcon.Hand);
             }
             finally
@@ -134,13 +136,13 @@ namespace SisnetDBComparer
             if (conexion == Conexion.Conexion1)
             {
                 this.dbManager1.CloseConnection();
-                this.dbManager1.SetDBManager(this.txtHost1.Text, database, this.txtUser1.Text, this.txtPwd1.Text);
+                this.dbManager1.SetDBManager(this.txtHost1.Text, this.txtPort1.Text, database, this.txtUser1.Text, this.txtPwd1.Text);
                 return this.dbManager1;
             }
             else
             {
                 this.dbManager2.CloseConnection();
-                this.dbManager2.SetDBManager(this.txtHost2.Text, database, this.txtUser2.Text, this.txtPwd2.Text);
+                this.dbManager2.SetDBManager(this.txtHost2.Text, this.txtPort2.Text, database, this.txtUser2.Text, this.txtPwd2.Text);
                 return this.dbManager2;
             }
         }
@@ -242,7 +244,7 @@ namespace SisnetDBComparer
             }
             else
             {
-                Console.WriteLine("Notificado generla " + this.pgb.Value);
+                //Console.WriteLine("Notificado general " + this.pgb.Value);
                 item = (ItemDTO)e.UserState;
                 this.lblStatusProgress.Text = !string.IsNullOrEmpty(item.Table1) ? item.Table1 : item.Table2;
                 this.lblStatusProgress.Text += item.LoadedOnlySchema ? " [online]" : " [memory]";
@@ -618,6 +620,12 @@ namespace SisnetDBComparer
                     return;
                 }
 
+                if (this.cmbBD1.SelectedItem == null || this.cmbBD2.SelectedItem == null)
+                {
+                    MessageBox.Show("Seleccione las bases de origen y destino", "Sisnet", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
                 this.btnComparar.Text = "Cancelar";
                 this.pgb.Value = 0;
                 this.lblElapsed.Text = string.Empty;
@@ -898,6 +906,7 @@ namespace SisnetDBComparer
             this.bgwSync.ReportProgress(0, StatusSync.SyncDataStart);
 
             this.DeleteAllFK();
+            
             List<ItemDTO> tablesToSync = this.GetTablesToSync();
             int num = 0;
 
@@ -960,7 +969,7 @@ namespace SisnetDBComparer
                     GC.Collect();
                 }
             }
-
+            
             // despues de sincronizadas las tablas se crean las foreign keys
 
             this.CreateAllFK();
@@ -989,40 +998,107 @@ namespace SisnetDBComparer
         private void CreateAllFK()
         {
             DataTable foreignKeys = this.dbManager1.GetForeginKeys(null);
-
             List<string> createFKs = (from DataRow row in foreignKeys.Rows
-                                      select "ALTER TABLE " + row["table_origin"] +
-                                      " ADD CONSTRAINT " + row["foreign_key_name"] +
-                                      " FOREIGN KEY (" + row["column_origin"] + ")" +
-                                      " REFERENCES " + row["table_destination"] +
-                                      "(" + row["column_destination"] + ") " +
-                                      (
-                                      " ON UPDATE" +
-                                        (
-
-                                        !string.IsNullOrEmpty(row["action_update"].ToString())
-                                            && row["action_update"].ToString() == "c"
-
-                                        ? " CASCADE" : " NO ACTION"
-                                        )
-                                      )
-                                          +
-                                        (
-                                        " ON DELETE" +
-                                        (
-                                            !string.IsNullOrEmpty(row["action_update"].ToString())
-                                            && row["action_update"].ToString() == "c"
-
-                                            ? " CASCADE" : " NO ACTION"
-                                        )
-                                        ) + ";"
+                                      select GetFKSentence(row)
                                         ).ToList();
 
             string createFK = string.Join($"{Environment.NewLine}", createFKs.ToArray());
             if (!string.IsNullOrEmpty(createFK))
             {
-                this.dbManager2.ExecuteSentence(createFK);
+                bool incompatibleTypes = false;
+                try
+                {
+                    this.dbManager2.ExecuteSentence(createFK);
+
+                }
+                catch (ApplicationException ex)
+                {
+                    if (ex.Message.Contains("42804"))
+                    {
+                        incompatibleTypes = true;
+                    }
+                    else {
+                        throw ex;
+                    }
+                }
+
+
+                if (incompatibleTypes)
+                {
+
+                    this.DeleteAllFK();
+
+                    List<string> failed = new List<string>();
+                    foreach (DataRow row in foreignKeys.Rows)
+                    {
+                        string fkSentence = GetFKSentence(row);
+                        try
+                        {
+                            this.dbManager2.ExecuteSentence(fkSentence);
+                        }
+                        catch (ApplicationException ex)
+                        {
+                            if (ex.Message.Contains("42804"))
+                            {
+                                string alterFixFK = GetAlterFixFK(row);
+                                this.dbManager2.ExecuteSentence(alterFixFK);
+                                this.dbManager2.ExecuteSentence(fkSentence);
+                                //failed.Add(item + " -> " + ex.Message);
+                                Console.WriteLine(ex.Message);
+                            }
+                        }
+                    }
+                }
+
             }
+        }
+
+        private static string GetFKSentence(DataRow row)
+        {
+            return "ALTER TABLE " + row["table_origin"] +
+                                                  " ADD CONSTRAINT " + row["foreign_key_name"] +
+                                                  " FOREIGN KEY (" + row["column_origin"] + ")" +
+                                                  " REFERENCES " + row["table_destination"] +
+                                                  "(" + row["column_destination"] + ") " +
+                                                  (
+                                                  " ON UPDATE" +
+                                                    (
+
+                                                    !string.IsNullOrEmpty(row["action_update"].ToString())
+                                                        && row["action_update"].ToString() == "c"
+
+                                                    ? " CASCADE" : " NO ACTION"
+                                                    )
+                                                  )
+                                                      +
+                                                    (
+                                                    " ON DELETE" +
+                                                    (
+                                                        !string.IsNullOrEmpty(row["action_update"].ToString())
+                                                        && row["action_update"].ToString() == "c"
+
+                                                        ? " CASCADE" : " NO ACTION"
+                                                    )
+                                                    ) + ";";
+        }
+
+        private string GetAlterFixFK(DataRow row)
+        {
+            DataTable primary = dbManager1.GetFieldsAdvance(row["table_destination"].ToString());
+            DataRow origin = null;
+            foreach (DataRow item in primary.Rows)
+            {
+                if (item["column_name"].ToString() == row["column_destination"].ToString()) {
+                    origin = item;
+                    break;
+                }
+            }
+            return "ALTER TABLE " + row["table_origin"] +
+                                                  " ALTER COLUMN " +
+                                                  row["column_origin"] +
+                                                  " TYPE " + 
+                                                  origin["data_type"].ToString() +
+                                                  ";";
         }
 
         private List<DataTable> LoadTablesToSync(ItemDTO tableToSync)
@@ -1060,13 +1136,13 @@ namespace SisnetDBComparer
                         if (isOrigin)
                         {
                             dbManagerTo1 = DBManager.GetInstance();
-                            dbManagerTo1.SetDBManager(this.txtHost1.Text, namebd1, this.txtUser1.Text, this.txtPwd1.Text, false);
+                            dbManagerTo1.SetDBManager(this.txtHost1.Text, this.txtPort1.Text, namebd1, this.txtUser1.Text, this.txtPwd1.Text, false);
                             tabla1 = dbManagerTo1.GetTableData(table, columnsKeys);
                         }
                         else if (!string.IsNullOrEmpty(table))
                         {
                             dbManagerTo2 = DBManager.GetInstance();
-                            dbManagerTo2.SetDBManager(this.txtHost2.Text, namebd2, this.txtUser2.Text, this.txtPwd2.Text, false);
+                            dbManagerTo2.SetDBManager(this.txtHost2.Text, this.txtPort2.Text, namebd2, this.txtUser2.Text, this.txtPwd2.Text, false);
                             tabla2 = dbManagerTo2.GetTableData(table, columnsKeys);
                         }
                     }
@@ -1178,6 +1254,12 @@ namespace SisnetDBComparer
                 {
                     if (tabla1.Rows[i][j] is byte[])
                     {
+                        if (tabla1.Rows[i][j] != DBNull.Value && tabla2.Rows[i][j] == DBNull.Value)
+                        {
+                            badRows.Add(i);
+                            break;
+                        }
+
                         if (!((byte[])tabla1.Rows[i][j]).SequenceEqual((byte[])tabla2.Rows[i][j]))
                         {
                             badRows.Add(i);
@@ -1187,19 +1269,40 @@ namespace SisnetDBComparer
                     else if (tabla1.Rows[i][j] is DateTime && tabla1.Columns[j].ExtendedProperties.ContainsKey("ProviderType"))
                     {
                         DateTime timeTable1 = (DateTime)tabla1.Rows[i][j];
-                        TimeSpan onlyHour1 = timeTable1.TimeOfDay;
-                        if (tabla2.Rows[i][j] == DBNull.Value)
+
+                        if (tabla1.Columns[j].ExtendedProperties["ProviderType"].ToString() == "time")
                         {
-                            badRows.Add(i);
-                            break;
+                            TimeSpan onlyHour1 = timeTable1.TimeOfDay;
+                            if (tabla2.Rows[i][j] == DBNull.Value)
+                            {
+                                badRows.Add(i);
+                                break;
+                            }
+                            DateTime timeTable2 = (DateTime)tabla2.Rows[i][j];
+                            TimeSpan onlyHour2 = timeTable2.TimeOfDay;
+                            if (!onlyHour1.Equals(onlyHour2))
+                            {
+                                badRows.Add(i);
+                                break;
+                            }
                         }
-                        DateTime timeTable2 = (DateTime)tabla2.Rows[i][j];
-                        TimeSpan onlyHour2 = timeTable2.TimeOfDay;
-                        if (!onlyHour1.Equals(onlyHour2))
+                        else if (tabla1.Columns[j].ExtendedProperties["ProviderType"].ToString() == "date")
                         {
-                            badRows.Add(i);
-                            break;
+                            DateTime onlyDate1 = timeTable1.Date;
+                            if (tabla2.Rows[i][j] == DBNull.Value)
+                            {
+                                badRows.Add(i);
+                                break;
+                            }
+                            DateTime timeTable2 = (DateTime)tabla2.Rows[i][j];
+                            DateTime onlyDate2 = timeTable2.Date;
+                            if (!onlyDate1.Equals(onlyDate2))
+                            {
+                                badRows.Add(i);
+                                break;
+                            }
                         }
+
                     }
                     else if (!tabla1.Rows[i][j].Equals(tabla2.Rows[i][j]))
                     {
@@ -1377,6 +1480,12 @@ namespace SisnetDBComparer
                                 {
                                     if (rowTable1[j] is byte[])
                                     {
+                                        if (rowTable1[j] != DBNull.Value && rowTable2[j] == DBNull.Value)
+                                        {
+                                            badRows.Add(1);
+                                            break;
+                                        }
+
                                         if (!((byte[])rowTable1[j]).SequenceEqual((byte[])rowTable2[j]))
                                         {
                                             badRows.Add(1);
@@ -1386,19 +1495,39 @@ namespace SisnetDBComparer
                                     else if (rowTable1[j] is DateTime && tablePackage.Columns[j].ExtendedProperties.ContainsKey("ProviderType"))
                                     {
                                         DateTime timeTable1 = (DateTime)rowTable1[j];
-                                        TimeSpan onlyHour1 = timeTable1.TimeOfDay;
-                                        if (rowTable2[j] == DBNull.Value)
+                                        if (tablePackage.Columns[j].ExtendedProperties["ProviderType"].ToString() == "time")
                                         {
-                                            badRows.Add(1);
-                                            break;
+                                            TimeSpan onlyHour1 = timeTable1.TimeOfDay;
+                                            if (rowTable2[j] == DBNull.Value)
+                                            {
+                                                badRows.Add(1);
+                                                break;
+                                            }
+                                            DateTime timeTable2 = (DateTime)rowTable2[j];
+                                            TimeSpan onlyHour2 = timeTable2.TimeOfDay;
+                                            if (!onlyHour1.Equals(onlyHour2))
+                                            {
+                                                badRows.Add(1);
+                                                //return;
+                                                break;
+                                            }
                                         }
-                                        DateTime timeTable2 = (DateTime)rowTable2[j];
-                                        TimeSpan onlyHour2 = timeTable2.TimeOfDay;
-                                        if (!onlyHour1.Equals(onlyHour2))
+                                        else if (tablePackage.Columns[j].ExtendedProperties["ProviderType"].ToString() == "date")
                                         {
-                                            badRows.Add(1);
-                                            //return;
-                                            break;
+                                            DateTime onlyDate1 = timeTable1.Date;
+                                            if (rowTable2[j] == DBNull.Value)
+                                            {
+                                                badRows.Add(1);
+                                                break;
+                                            }
+                                            DateTime timeTable2 = (DateTime)rowTable2[j];
+                                            DateTime onlyDate2 = timeTable2.Date;
+                                            if (!onlyDate1.Equals(onlyDate2))
+                                            {
+                                                badRows.Add(1);
+                                                //return;
+                                                break;
+                                            }
                                         }
                                     }
                                     else if (!rowTable1[j].Equals(rowTable2[j]))
@@ -1530,6 +1659,8 @@ namespace SisnetDBComparer
                 tabla2 = this.dbManager2.GetTableData(tableName, null, null, true);
             }
 
+            DataTable referenceColums = this.dbManager1.GetTableData(tableName, onlySchema: true);
+
             // Verificar si tienen la misma cantidad de columnas
             /*if (tabla1.Columns.Count != tabla2.Columns.Count)
             {
@@ -1550,19 +1681,19 @@ namespace SisnetDBComparer
             GroupNotified groupNotified = new GroupNotified();
 
             DataColumn[] primaryKey =
-                (from DataColumn column in tabla2.Columns
+                (from DataColumn column in referenceColums.Columns
                  where tableToSync.Table1Keys.Contains(column.ColumnName)
                  select column).ToArray();
 
 
-            string[] columns = (from DataColumn column in tabla2.Columns
-                                select column.ColumnName).ToArray();
+            string[] totalColumns = (from DataColumn column in referenceColums.Columns
+                                     select column.ColumnName).ToArray();
 
             string prepareInsert = $"INSERT INTO {tableName} ({Environment.NewLine}"
-                + string.Join($",{Environment.NewLine}", columns)
+                + string.Join($",{Environment.NewLine}", totalColumns)
                 + $" {Environment.NewLine}) "
                 + $" VALUES({Environment.NewLine}"
-                + string.Join($",{Environment.NewLine}", columns.Select((localValue, indice) => $"@p{indice}").ToArray())
+                + string.Join($",{Environment.NewLine}", totalColumns.Select((localValue, indice) => $"@p{indice}").ToArray())
                 + ");";
 
             string[] colsToDelete = (from DataColumn column in primaryKey
@@ -1592,6 +1723,7 @@ namespace SisnetDBComparer
                 // Iterar sobre la lista de 10 en 10 utilizando Take
                 for (int idRecord = 0; idRecord < tabla1Rows.Count; idRecord += subcycleSize)
                 {
+
                     // Utilizando ThreadPool para simular Parallel.ForEach
                     ManualResetEvent resetEvent = new ManualResetEvent(false);
                     DataTable tablePackage;
@@ -1603,22 +1735,19 @@ namespace SisnetDBComparer
                         object[][] dataFilter = (from DataRow itemData in subcycle
                                                  select itemData.ItemArray).ToArray();
 
-                        tablePackage = this.dbManager1.GetTableData(tableName, primaryKey.ToList(), dataFilter);
+                        List<DataColumn> columnsKeysToFilter = primaryKey.ToList();
+                        //Cuando no hay llaves primarias, traer todas las columnas
+                        if (!columnsKeysToFilter.Any())
+                        {
+                            columnsKeysToFilter = (from DataColumn column in referenceColums.Columns
+                                                   select column).ToList();
+                        }
+                        tablePackage = this.dbManager1.GetTableData(tableName, columnsKeysToFilter, dataFilter);
                         subcycle = (from DataRow row in tablePackage.Rows select row).ToList();
                         if (tableToSync.CountTable2 != 0)
                         {
                             tabla2 = this.dbManager2.GetTableData(tableName, primaryKey.ToList(), dataFilter);
                         }
-
-                        columns = (from DataColumn column in tabla2.Columns
-                                   select column.ColumnName).ToArray();
-
-                        prepareInsert = $"INSERT INTO {tableName} ({Environment.NewLine}"
-                            + string.Join($",{Environment.NewLine}", columns)
-                            + $" {Environment.NewLine}) "
-                            + $" VALUES({Environment.NewLine}"
-                            + string.Join($",{Environment.NewLine}", columns.Select((localValue, indice) => $"@p{indice}").ToArray())
-                            + ");";
 
                     }
                     else
@@ -1699,10 +1828,10 @@ namespace SisnetDBComparer
                                 // si no encuentra el registro, lo inserta
                                 if (rowData == null)
                                 {
-                                    dataToInsert = (from DataColumn column in tabla2.Columns
+                                    dataToInsert = (from DataColumn column in referenceColums.Columns
                                                     select
                                                     column.DataType == typeof(DateTime) && column.ExtendedProperties.Count > 0
-                                                    ? ExtractTime(rowTable1[column.ColumnName])
+                                                    ? ExtractTime(column, rowTable1[column.ColumnName])
                                                      :
                                                     rowTable1[column.ColumnName]
                                                                  ).ToArray();
@@ -1728,22 +1857,40 @@ namespace SisnetDBComparer
                                         }
                                         else if (rowTable1[j] is DateTime && tabla1.Columns[j].ExtendedProperties.ContainsKey("ProviderType"))
                                         {
-
-                                            DateTime timeTable1 = (DateTime)rowTable1[j];
-                                            TimeSpan onlyHour1 = timeTable1.TimeOfDay;
-                                            if (rowData[j] == DBNull.Value)
+                                            if (tabla1.Columns[j].ExtendedProperties["ProviderType"].ToString() == "time")
                                             {
-                                                equalDataRecord = false;
-                                                break;
+                                                DateTime timeTable1 = (DateTime)rowTable1[j];
+                                                TimeSpan onlyHour1 = timeTable1.TimeOfDay;
+                                                if (rowData[j] == DBNull.Value)
+                                                {
+                                                    equalDataRecord = false;
+                                                    break;
+                                                }
+                                                DateTime timeTable2 = (DateTime)rowData[j];
+                                                TimeSpan onlyHour2 = timeTable2.TimeOfDay;
+                                                if (!onlyHour1.Equals(onlyHour2))
+                                                {
+                                                    equalDataRecord = false;
+                                                    break;
+                                                }
                                             }
-                                            DateTime timeTable2 = (DateTime)rowData[j];
-                                            TimeSpan onlyHour2 = timeTable2.TimeOfDay;
-                                            if (!onlyHour1.Equals(onlyHour2))
+                                            else if (tabla1.Columns[j].ExtendedProperties["ProviderType"].ToString() == "date")
                                             {
-                                                equalDataRecord = false;
-                                                break;
+                                                DateTime timeTable1 = (DateTime)rowTable1[j];
+                                                DateTime onlyDate1 = timeTable1.Date;
+                                                if (rowData[j] == DBNull.Value)
+                                                {
+                                                    equalDataRecord = false;
+                                                    break;
+                                                }
+                                                DateTime timeTable2 = (DateTime)rowData[j];
+                                                DateTime onlyDate2 = timeTable2.Date;
+                                                if (!onlyDate1.Equals(onlyDate2))
+                                                {
+                                                    equalDataRecord = false;
+                                                    break;
+                                                }
                                             }
-
 
                                         }
                                         else if (!rowTable1[j].Equals(rowData[j]))
@@ -1758,7 +1905,7 @@ namespace SisnetDBComparer
                                         dataToInsert = (from DataColumn column in tabla2.Columns
                                                         select
                                                         column.DataType == typeof(DateTime) && column.ExtendedProperties.Count > 0
-                                                        ? ExtractTime(rowTable1[column.ColumnName])
+                                                        ? ExtractTime(column, rowTable1[column.ColumnName])
                                                          :
                                                         rowTable1[column.ColumnName]
                                                                  ).ToArray();
@@ -1812,20 +1959,19 @@ namespace SisnetDBComparer
 
                                     message += Environment.NewLine + ex.StackTrace;
                                     globalException = new ApplicationException(message, ex);
-                                    // Todos los elementos se han procesado
-                                    //resetEvent.Set();
+
                                 }
                             }
                             finally
                             {
                                 localRecord++;
-                                Console.WriteLine("Procesado " + localRecord + "->" +
+                                /*Console.WriteLine("Procesado " + localRecord + "->" +
                                     (
                                     valuesWithPrimaryKey == null ? string.Empty :
                                     string.Join(",", valuesWithPrimaryKey.Select(p => p.ToString()).ToArray()))
                                     )
                                     ;
-
+                                */
                                 valuesWithPrimaryKey = null;
                                 dataToInsert = null;
                                 // Collect all generations of memory.
@@ -1876,31 +2022,18 @@ namespace SisnetDBComparer
             }
             finally
             {
+                referenceColums = null;
                 this.dbManager1.CloseConnection();
                 this.dbManager2.CloseConnection();
-
             }
 
             return !badRows.Any();
 
         }
 
-        private object ExtractTime(object theTime)
+        private object ExtractTime(DataColumn column, object theTime)
         {
-            try
-            {
-                if (theTime == DBNull.Value)
-                    return theTime;
-                //14960
-                DateTime time = (DateTime)theTime;
-                TimeSpan onlyHour = time.TimeOfDay;
-                return onlyHour;
-            }
-            catch (Exception)
-            {
-                Console.WriteLine("Error en registro ");
-                throw;
-            }
+            return DBManager.ExtractTime(column, theTime);
 
         }
 
@@ -2071,31 +2204,8 @@ namespace SisnetDBComparer
                         this.lblRecords2.Text = "Registros: " + (this.filledTable2 == null ? 0 : this.filledTable2.Rows.Count);
                         break;
                     case StatusDetails.RefreshGrid:
-                        this.lblStatusDetails.Text = "Datos cargados";
-                        if (filledTable1 != null && filledTable1.Rows.Count <= 1000)
-                        {
-                            this.resumedTable1 = null;
-                            this.dataGridViewer1.DataSource = filledTable1;
-                        }
-                        else if (filledTable1 != null && this.resumedTable1 == null)
-                        {
-                            this.resumedTable1 = this.filledTable1.Clone();
-                            this.dataGridViewer1.DataSource = this.resumedTable1;
-                        }
+                        this.RefreshGridComparation();
 
-                        if (filledTable2 != null && filledTable2.Rows.Count <= 1000)
-                        {
-                            this.resumedTable1 = null;
-                            this.dataGridViewer2.DataSource = filledTable2;
-                        }
-                        else if (filledTable2 != null && this.resumedTable2 == null)
-                        {
-                            this.resumedTable2 = this.filledTable2.Clone();
-                            this.dataGridViewer2.DataSource = this.resumedTable2;
-                        }
-
-                        this.dataGridViewer1.Refresh();
-                        this.dataGridViewer2.Refresh();
                         break;
                     case StatusDetails.ComparacionFinished:
                         this.lblStatusDetails.Text = "Comparación finalizada";
@@ -2179,6 +2289,62 @@ namespace SisnetDBComparer
                 }
             }
         }
+
+        private void RefreshGridComparation()
+        {
+            this.lblStatusDetails.Text = "Datos cargados";
+            if (filledTable1 != null && filledTable1.Rows.Count <= 1000)
+            {
+                this.resumedTable1 = null;
+                this.dataGridViewer1.DataSource = filledTable1;
+            }
+            else if (filledTable1 != null && this.resumedTable1 == null)
+            {
+                this.resumedTable1 = this.filledTable1.Clone();
+                this.dataGridViewer1.DataSource = this.resumedTable1;
+            }
+
+            if (filledTable2 != null && filledTable2.Rows.Count <= 1000)
+            {
+                this.resumedTable1 = null;
+                this.dataGridViewer2.DataSource = filledTable2;
+            }
+            else if (filledTable2 != null && this.resumedTable2 == null)
+            {
+                this.resumedTable2 = this.filledTable2.Clone();
+                this.dataGridViewer2.DataSource = this.resumedTable2;
+            }
+
+            this.dataGridViewer1.Refresh();
+            this.dataGridViewer2.Refresh();
+            this.AdjustGridFomat(dataGridViewer1);
+            this.AdjustGridFomat(dataGridViewer2);
+
+        }
+
+        private void AdjustGridFomat(DataGridView grid)
+        {
+            for (int i = 0; grid.DataSource != null &&
+                    i < ((DataTable)this.dataGridViewer1.DataSource).Columns.Count; i++)
+            {
+                DataColumn column =
+                    ((DataTable)grid.DataSource).Columns[i];
+
+                if (column.ExtendedProperties.Count == 0)
+                {
+                    continue;
+                }
+                if (column.ExtendedProperties["ProviderType"].ToString() == "time")
+                {
+                    grid.Columns[i].DefaultCellStyle.Format = "HH:mm:ss";
+                }
+                else if (column.ExtendedProperties["ProviderType"].ToString() == "date")
+                {
+                    grid.Columns[i].DefaultCellStyle.Format = "yyyy-MM-dd";
+                }
+            }
+        }
+
 
         private void bgwDetails_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
         {
@@ -2351,24 +2517,31 @@ namespace SisnetDBComparer
             ((System.Windows.Forms.ListView)sender).ListViewItemSorter = comparer;
         }
 
+
+
         private void button1_Click(object sender, EventArgs e)
         {
             try
             {
-                for (int i = 1; i <= 1; i++)
+                //ReadWithODBC();
+
+                //SaveWithJava(null);
+                //return;
+
+                this.dbManager1.SetDBManager(this.txtHost1.Text, this.txtPort1.Text, "Fanapopequeweb", this.txtUser1.Text, this.txtPwd1.Text);
+
+                using (FileStream fileStream = new FileStream("C:\\Users\\USUARIO.DESKTOP-DIEGO\\Downloads\\Fanapo.rar", FileMode.Open, FileAccess.Read))
                 {
-                    using (FileStream fileStream = new FileStream("C:\\Users\\USUARIO.DESKTOP-DIEGO\\Downloads\\Fanapo.rar", FileMode.Open, FileAccess.Read))
+                    using (BinaryReader binaryReader = new BinaryReader(new BufferedStream(fileStream)))
                     {
-                        using (BinaryReader binaryReader = new BinaryReader(new BufferedStream(fileStream)))
-                        {
-                            byte[] numArray = binaryReader.ReadBytes(Convert.ToInt32(fileStream.Length));
-                            this.dbManager1.InsertArchivo((i + 1).ToString(), numArray);
-                            numArray = null;
-                            // Collect all generations of memory.
-                            GC.Collect();
-                        }
+                        byte[] numArray = binaryReader.ReadBytes(Convert.ToInt32(fileStream.Length));
+                        this.dbManager1.InsertArchivo("2", numArray);
+                        numArray = null;
+                        // Collect all generations of memory.
+                        GC.Collect();
                     }
                 }
+
 
                 MessageBox.Show("Archivos guardados");
             }
@@ -2377,6 +2550,66 @@ namespace SisnetDBComparer
 
                 MessageBox.Show("Error " + ex.Message);
 
+            }
+        }
+
+        private void ReadWithODBC()
+        {
+            this.dbManager1.SetDBManager(this.txtHost1.Text, this.txtPort1.Text, "Fanapopequeweb", this.txtUser1.Text, this.txtPwd1.Text);
+            this.dbManager1.GetTableDataODBC("abarchivos", null);
+
+            MessageBox.Show("Archivos leidos");
+        }
+
+        void SaveWithJava(ItemDTO tableToSync)
+        {
+            try
+            {
+                // Configura el proceso de inicio
+                ProcessStartInfo startInfo = new ProcessStartInfo
+                {
+                    FileName = "java",
+                    Arguments = "-jar lib/scdb.jar"
+                    + " -d1 " + this.namebd1
+                    + " -d2 " + this.namebd2
+                    + " -s1 " + this.txtHost1.Text
+                    + " -s2 " + this.txtHost2.Text
+                    + " -u1 " + this.txtUser1.Text
+                    + " -u2 " + this.txtUser2.Text
+                    + " -p1 " + this.txtPwd1.Text
+                    + " -p2 " + this.txtPwd2.Text
+                    + " -t " + tableToSync.Table1
+                    + " -r " + "123"
+                    + " -pa xx,bb,null",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                };
+
+                // Crea y comienza el proceso
+                using (Process process = new Process { StartInfo = startInfo })
+                {
+                    process.Start();
+
+                    // Lee la salida estándar y la salida de error
+                    string output = process.StandardOutput.ReadToEnd();
+                    string error = process.StandardError.ReadToEnd();
+
+                    // Espera a que el proceso termine
+                    process.WaitForExit();
+
+                    // Muestra la salida estándar y la salida de error
+                    Console.WriteLine("Salida estándar:");
+                    Console.WriteLine(output);
+
+                    Console.WriteLine("Salida de error:");
+                    Console.WriteLine(error);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al ejecutar el comando: {ex.Message}");
             }
         }
     }
