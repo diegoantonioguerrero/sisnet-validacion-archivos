@@ -448,7 +448,7 @@
             // label11
             // 
             this.label11.AutoSize = true;
-            this.label11.Location = new System.Drawing.Point(230, 7);
+            this.label11.Location = new System.Drawing.Point(314, 7);
             this.label11.Name = "label11";
             this.label11.Size = new System.Drawing.Size(43, 13);
             this.label11.TabIndex = 17;
@@ -589,7 +589,7 @@
             // 
             // btnComparar
             // 
-            this.btnComparar.Location = new System.Drawing.Point(471, 4);
+            this.btnComparar.Location = new System.Drawing.Point(597, 5);
             this.btnComparar.Name = "btnComparar";
             this.btnComparar.Size = new System.Drawing.Size(155, 23);
             this.btnComparar.TabIndex = 4;
@@ -600,9 +600,9 @@
             // cmbBD2
             // 
             this.cmbBD2.FormattingEnabled = true;
-            this.cmbBD2.Location = new System.Drawing.Point(318, 7);
+            this.cmbBD2.Location = new System.Drawing.Point(367, 7);
             this.cmbBD2.Name = "cmbBD2";
-            this.cmbBD2.Size = new System.Drawing.Size(121, 21);
+            this.cmbBD2.Size = new System.Drawing.Size(200, 21);
             this.cmbBD2.TabIndex = 3;
             this.cmbBD2.SelectedIndexChanged += new System.EventHandler(this.cmbBD2_SelectedIndexChanged);
             // 
@@ -611,7 +611,7 @@
             this.cmbBD1.FormattingEnabled = true;
             this.cmbBD1.Location = new System.Drawing.Point(79, 7);
             this.cmbBD1.Name = "cmbBD1";
-            this.cmbBD1.Size = new System.Drawing.Size(121, 21);
+            this.cmbBD1.Size = new System.Drawing.Size(200, 21);
             this.cmbBD1.TabIndex = 2;
             this.cmbBD1.SelectedIndexChanged += new System.EventHandler(this.cmbBD1_SelectedIndexChanged);
             // 

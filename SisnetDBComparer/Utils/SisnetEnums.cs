@@ -67,5 +67,10 @@
         LoadingTables,
         SyncMovingData,
         SyncRow,
+        SyncCreatingTable,
+        SyncPreparingSentences,
+        SyncReadingPackage,
+        SyncPreparingPool,
+        SyncCreateAllFK,
     }
 }
