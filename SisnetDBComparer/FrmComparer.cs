@@ -55,6 +55,8 @@ namespace SisnetDBComparer
         DataTable tbdbs2;
 
         private bool dataEquals;
+        private DataTable Struct1;
+        private DataTable Struct2;
         private readonly long FACTOR_MB = 1000000;
         private readonly long MB_100 = 1000;
 
@@ -88,13 +90,13 @@ namespace SisnetDBComparer
                 this.lblStatus2.Text = "Conectando...";
                 this.lblStatus2.ForeColor = Color.Blue;
 
-                dBManager.SetDBManager(this.txtHost1.Text, this.txtPort1.Text, "", this.txtUser1.Text, this.txtPwd1.Text);
+                dBManager.SetDBManager(this.txtHost1.Text, this.txtPort1.Text, "postgres", this.txtUser1.Text, this.txtPwd1.Text);
                 this.conexionExitosa1 = true;
                 this.lblStatus1.Text = "Conectado " + dBManager.ServerVersion;
                 this.lblStatus1.ForeColor = Color.Green;
 
 
-                dBManager.SetDBManager(this.txtHost2.Text, this.txtPort2.Text, "", this.txtUser2.Text, this.txtPwd2.Text);
+                dBManager.SetDBManager(this.txtHost2.Text, this.txtPort2.Text, "postgres", this.txtUser2.Text, this.txtPwd2.Text);
                 this.conexionExitosa2 = true;
                 this.lblStatus2.Text = "Conectado " + dBManager.ServerVersion;
                 this.lblStatus2.ForeColor = Color.Green;
@@ -815,6 +817,10 @@ namespace SisnetDBComparer
                     this.tbComparador.SelectedTab = this.tabPageComparer;
                     return;
                 }
+                if (this.bgwSync.IsBusy)
+                {
+                    return;
+                }
 
                 this.lblInfoTable1.Text = this.namebd1 + "(N/A)";
                 this.lblInfoTable2.Text = this.namebd2 + "(N/A)";
@@ -899,13 +905,35 @@ namespace SisnetDBComparer
 
             this.bgwDetails.ReportProgress(75, StatusDetails.CargaCompleta);
 
+            //Asigna el dataSource al gridView
             this.bgwDetails.ReportProgress(100, StatusDetails.RefreshGrid);
 
             // Comparar DataTables
             dataEquals = SonDataTablesIguales(filledTable1, filledTable2, true);
 
+            //coco
+            this.LoadStructure();
             this.bgwDetails.ReportProgress(100, StatusDetails.ComparacionFinished);
 
+        }
+
+        private void LoadStructure()
+        {
+            this.Struct1 = null;
+            this.Struct2 = null;
+            if (this.itemDTOSelected1 != null)
+            {
+                DataTable tb = this.dbManager1.GetFieldsAdvance(itemDTOSelected1.Table1);
+                tb.Columns.Remove("table_name");
+                this.Struct1 = tb;
+            }
+            if (this.itemDTOSelected2 != null)
+            {
+                //filledTable1 = ReorderData(filledTable1, itemDTOSelected1.Table1Keys);
+                DataTable tb = this.dbManager2.GetFieldsAdvance(itemDTOSelected2.Table2);
+                tb.Columns.Remove("table_name");
+                this.Struct2 = tb;
+            }
         }
 
         private List<ItemDTO> GetTablesToSync()
@@ -929,7 +957,7 @@ namespace SisnetDBComparer
 
             List<ItemDTO> tablesToSync = this.GetTablesToSync();
             int num = 0;
-
+            bool successSync;
 
             foreach (var tableToSync in tablesToSync)
             {
@@ -967,8 +995,11 @@ namespace SisnetDBComparer
                         Item = tableToSync
                     });
 
-                    this.SyncDataFromTable(tableToSync, dataTablesToSync[0], dataTablesToSync[1], true);
-
+                    successSync = this.SyncDataFromTable(tableToSync, dataTablesToSync[0], dataTablesToSync[1], true, e);
+                    if (!successSync && e.Cancel)
+                    {
+                        return;
+                    }
                     this.bgwSync.ReportProgress(count, new SyncResult
                     {
                         StatusSync = StatusSync.SyncFinishTable,
@@ -1256,11 +1287,23 @@ namespace SisnetDBComparer
             // Verificar si tienen las mismas columnas y en el mismo orden
             for (int i = 0; i < tabla1.Columns.Count; i++)
             {
-                if (tabla1.Columns[i].ColumnName != tabla2.Columns[i].ColumnName ||
-                    tabla1.Columns[i].DataType != tabla2.Columns[i].DataType)
+                if (tabla1.Columns[i].ColumnName != tabla2.Columns[i].ColumnName)
                 {
                     return false;
                 }
+
+                // asumes that decimal is equal to int
+                if (tabla1.Columns[i].DataType == typeof(Decimal) && tabla2.Columns[i].DataType == typeof(Int32))
+                {
+                }
+                else
+                {
+                    if (tabla1.Columns[i].DataType != tabla2.Columns[i].DataType)
+                    {
+                        return false;
+                    }
+                }
+
             }
 
             // Verificar si tienen la misma cantidad de filas
@@ -1328,7 +1371,14 @@ namespace SisnetDBComparer
                                 break;
                             }
                         }
-
+                    }
+                    else if (tabla1.Rows[i][j] is Decimal && tabla2.Rows[i][j] is Int32)
+                    {
+                        if (Int32.Parse(tabla1.Rows[i][j].ToString()) != Int32.Parse(tabla2.Rows[i][j].ToString()))
+                        {
+                            badRows.Add(i);
+                            break;
+                        }
                     }
                     else if (!tabla1.Rows[i][j].Equals(tabla2.Rows[i][j]))
                     {
@@ -1392,10 +1442,21 @@ namespace SisnetDBComparer
             // Verificar si tienen las mismas columnas y en el mismo orden
             for (int i = 0; i < tabla1.Columns.Count; i++)
             {
-                if (tabla1.Columns[i].ColumnName != tabla2.Columns[i].ColumnName ||
-                    tabla1.Columns[i].DataType != tabla2.Columns[i].DataType)
+                if (tabla1.Columns[i].ColumnName != tabla2.Columns[i].ColumnName)
                 {
                     return false;
+                }
+
+                // asumes that decimal is equal to int
+                if (tabla1.Columns[i].DataType == typeof(Decimal) && tabla2.Columns[i].DataType == typeof(Int32))
+                {
+                }
+                else
+                {
+                    if (tabla1.Columns[i].DataType != tabla2.Columns[i].DataType)
+                    {
+                        return false;
+                    }
                 }
             }
 
@@ -1485,8 +1546,6 @@ namespace SisnetDBComparer
 
                                     string filter = string.Join($"{Environment.NewLine} AND ", filterValues);
 
-
-
                                     rowTable2 = tabla2.Select(filter).FirstOrDefault();
                                 }
 
@@ -1554,6 +1613,14 @@ namespace SisnetDBComparer
                                                 //return;
                                                 break;
                                             }
+                                        }
+                                    }
+                                    else if (rowTable1[j] is Decimal && rowTable2[j] is Int32)
+                                    {
+                                        if (Int32.Parse(rowTable1[j].ToString()) != Int32.Parse(rowTable2[j].ToString()))
+                                        {
+                                            badRows.Add(1);
+                                            break;
                                         }
                                     }
                                     else if (!rowTable1[j].Equals(rowTable2[j]))
@@ -1673,7 +1740,7 @@ namespace SisnetDBComparer
 
 
         // Método para comparar dos DataTables
-        bool SyncDataFromTable(ItemDTO tableToSync, DataTable tabla1, DataTable tabla2, bool paintGridView)
+        bool SyncDataFromTable(ItemDTO tableToSync, DataTable tabla1, DataTable tabla2, bool paintGridView, DoWorkEventArgs e)
         {
             string tableName = tableToSync.Table1;
 
@@ -1728,7 +1795,7 @@ namespace SisnetDBComparer
                                      select column.ColumnName).ToArray();
 #if DEBUG
             string separator = Environment.NewLine;
-#else 
+#else
             string separator = string.Empty;
 #endif
             string prepareInsert = $"INSERT INTO {tableName} ({separator}"
@@ -1771,6 +1838,12 @@ namespace SisnetDBComparer
                 // Iterar sobre la lista de 10 en 10 utilizando Take
                 for (int idRecord = 0; idRecord < tabla1Rows.Count; idRecord += subcycleSize)
                 {
+                    if (this.bgwSync.CancellationPending)
+                    {
+                        e.Cancel = true;
+                        return false;
+                    }
+
                     int count = localRecord * 100 / tabla1.Rows.Count;
 
                     // Utilizando ThreadPool para simular Parallel.ForEach
@@ -1968,20 +2041,24 @@ namespace SisnetDBComparer
                                         this.dbManager2.ExecuteRecord(prepareDelete, valuesWithPrimaryKey, true, this.txtUser2.Text, this.txtPwd2.Text);
                                         this.dbManager2.ExecuteRecord(prepareInsert, dataToInsert, true, this.txtUser2.Text, this.txtPwd2.Text);
                                     }
-
                                 }
 
-                                // para aumentar rendimiento se grafica cada 1000 registros
-                                if (paintGridView && localRecord % subcycleSize == 0)
+                                lock (groupNotified)
                                 {
-                                    this.bgwSync.ReportProgress(count,
-                                            new SyncResult
-                                            {
-                                                Item = tableToSync,
-                                                StatusSync = StatusSync.SyncRow,
-                                                Index = localRecord
-                                            }
-                                        );
+                                    // para aumentar rendimiento se grafica cada 1000 registros
+                                    if (paintGridView && (
+                                    localRecord % subcycleSize == 0 || localRecord % 200 == 0)
+                                    )
+                                    {
+                                        this.bgwSync.ReportProgress(count,
+                                                new SyncResult
+                                                {
+                                                    Item = tableToSync,
+                                                    StatusSync = StatusSync.SyncRow,
+                                                    Index = localRecord
+                                                }
+                                            );
+                                    }
                                 }
 
 
@@ -2260,7 +2337,6 @@ namespace SisnetDBComparer
                         break;
                     case StatusDetails.RefreshGrid:
                         this.RefreshGridComparation();
-
                         break;
                     case StatusDetails.ComparacionFinished:
                         this.lblStatusDetails.Text = "Comparación finalizada";
@@ -2345,6 +2421,37 @@ namespace SisnetDBComparer
             }
         }
 
+        private void RefreshGridStruct()
+        {
+            this.grvStruct1.DataSource = this.Struct1;
+            this.grvStruct2.DataSource = this.Struct2;
+            if (this.Struct1 == null || this.Struct2 == null)
+            {
+                return;
+            }
+
+            int j = 0;
+            foreach (DataRow row in this.Struct1.Rows)
+            {
+                string filter = "column_name='" + row["column_name"] + "'";
+                DataRow rowTable2 = this.Struct2.Select(filter).FirstOrDefault();
+                if (rowTable2 == null)
+                {
+                    this.grvStruct1.Rows[j].DefaultCellStyle.BackColor = Color.Orange;
+                    continue;
+                }
+                for (int i = 0; i < row.ItemArray.Length; i++)
+                {
+                    if (row[i].ToString() != rowTable2[i].ToString())
+                    {
+                        this.grvStruct1.Rows[j].DefaultCellStyle.BackColor = Color.Orange;
+                        this.grvStruct2.Rows[j].DefaultCellStyle.BackColor = Color.Orange;
+                        break;
+                    }
+                }
+                j++;
+            }
+        }
         private void RefreshGridComparation()
         {
             this.lblStatusDetails.Text = "Datos cargados";
@@ -2372,15 +2479,15 @@ namespace SisnetDBComparer
 
             this.dataGridViewer1.Refresh();
             this.dataGridViewer2.Refresh();
-            this.AdjustGridFomat(dataGridViewer1);
-            this.AdjustGridFomat(dataGridViewer2);
+            this.AdjustGridFormat(dataGridViewer1);
+            this.AdjustGridFormat(dataGridViewer2);
 
         }
 
-        private void AdjustGridFomat(DataGridView grid)
+        private void AdjustGridFormat(DataGridView grid)
         {
             for (int i = 0; grid.DataSource != null &&
-                    i < ((DataTable)this.dataGridViewer1.DataSource).Columns.Count; i++)
+                    i < ((DataTable)grid.DataSource).Columns.Count; i++)
             {
                 DataColumn column =
                     ((DataTable)grid.DataSource).Columns[i];
@@ -2426,6 +2533,8 @@ namespace SisnetDBComparer
 
             this.lblInfoTable1.ForeColor = this.dataEquals ? Color.Green : Color.Red;
             this.lblInfoTable2.ForeColor = this.dataEquals ? Color.Green : Color.Red;
+
+            this.RefreshGridStruct();
 
         }
 
@@ -2479,8 +2588,8 @@ namespace SisnetDBComparer
                     default:
                         break;
                 }
-                this.Invalidate();
-                this.Refresh();
+                this.lblStatusDetails.Invalidate();
+                this.lblStatusDetails.Refresh();
             }
             else if (e.UserState is SyncResult)
             {
@@ -2516,6 +2625,9 @@ namespace SisnetDBComparer
                     default:
                         break;
                 }
+
+                this.lblStatusDetails.Invalidate();
+                this.lblStatusDetails.Refresh();
             }
         }
 

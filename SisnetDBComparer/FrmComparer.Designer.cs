@@ -118,6 +118,11 @@
             this.bgwDetails = new System.ComponentModel.BackgroundWorker();
             this.bgwSync = new System.ComponentModel.BackgroundWorker();
             this.toolTipSincronizer = new System.Windows.Forms.ToolTip(this.components);
+            this.tabControl1 = new System.Windows.Forms.TabControl();
+            this.tabPage1 = new System.Windows.Forms.TabPage();
+            this.tabPage2 = new System.Windows.Forms.TabPage();
+            this.grvStruct1 = new System.Windows.Forms.DataGridView();
+            this.grvStruct2 = new System.Windows.Forms.DataGridView();
             this.groupBox1.SuspendLayout();
             this.groupBox2.SuspendLayout();
             this.tbComparador.SuspendLayout();
@@ -134,6 +139,11 @@
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox7)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.dataGridViewer2)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.dataGridViewer1)).BeginInit();
+            this.tabControl1.SuspendLayout();
+            this.tabPage1.SuspendLayout();
+            this.tabPage2.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.grvStruct1)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.grvStruct2)).BeginInit();
             this.SuspendLayout();
             // 
             // groupBox1
@@ -369,7 +379,7 @@
             this.tbComparador.Location = new System.Drawing.Point(12, 14);
             this.tbComparador.Name = "tbComparador";
             this.tbComparador.SelectedIndex = 0;
-            this.tbComparador.Size = new System.Drawing.Size(779, 594);
+            this.tbComparador.Size = new System.Drawing.Size(824, 669);
             this.tbComparador.TabIndex = 10;
             this.tbComparador.SelectedIndexChanged += new System.EventHandler(this.tbComparador_SelectedIndexChanged);
             // 
@@ -426,7 +436,7 @@
             this.tabPageComparer.Location = new System.Drawing.Point(4, 22);
             this.tabPageComparer.Name = "tabPageComparer";
             this.tabPageComparer.Padding = new System.Windows.Forms.Padding(3);
-            this.tabPageComparer.Size = new System.Drawing.Size(771, 568);
+            this.tabPageComparer.Size = new System.Drawing.Size(816, 643);
             this.tabPageComparer.TabIndex = 1;
             this.tabPageComparer.Text = "Comparador";
             this.tabPageComparer.UseVisualStyleBackColor = true;
@@ -468,7 +478,7 @@
             this.lblElapsed.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.lblElapsed.AutoSize = true;
-            this.lblElapsed.Location = new System.Drawing.Point(23, 507);
+            this.lblElapsed.Location = new System.Drawing.Point(23, 582);
             this.lblElapsed.Name = "lblElapsed";
             this.lblElapsed.Size = new System.Drawing.Size(40, 13);
             this.lblElapsed.TabIndex = 15;
@@ -571,7 +581,7 @@
             this.lblStatusProgress.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.lblStatusProgress.AutoSize = true;
-            this.lblStatusProgress.Location = new System.Drawing.Point(23, 478);
+            this.lblStatusProgress.Location = new System.Drawing.Point(23, 553);
             this.lblStatusProgress.Name = "lblStatusProgress";
             this.lblStatusProgress.Size = new System.Drawing.Size(40, 13);
             this.lblStatusProgress.TabIndex = 13;
@@ -581,9 +591,9 @@
             // 
             this.pgb.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.pgb.Location = new System.Drawing.Point(211, 478);
+            this.pgb.Location = new System.Drawing.Point(211, 553);
             this.pgb.Name = "pgb";
-            this.pgb.Size = new System.Drawing.Size(541, 23);
+            this.pgb.Size = new System.Drawing.Size(586, 23);
             this.pgb.Style = System.Windows.Forms.ProgressBarStyle.Continuous;
             this.pgb.TabIndex = 5;
             // 
@@ -635,7 +645,7 @@
             this.lvComparer.HideSelection = false;
             this.lvComparer.Location = new System.Drawing.Point(23, 120);
             this.lvComparer.Name = "lvComparer";
-            this.lvComparer.Size = new System.Drawing.Size(729, 352);
+            this.lvComparer.Size = new System.Drawing.Size(774, 427);
             this.lvComparer.SmallImageList = this.imageList1;
             this.lvComparer.TabIndex = 1;
             this.lvComparer.UseCompatibleStateImageBehavior = false;
@@ -709,6 +719,7 @@
             // 
             // tabPageDetail
             // 
+            this.tabPageDetail.Controls.Add(this.tabControl1);
             this.tabPageDetail.Controls.Add(this.label13);
             this.tabPageDetail.Controls.Add(this.lblElapsedSync);
             this.tabPageDetail.Controls.Add(this.lblStatusDetails);
@@ -717,15 +728,13 @@
             this.tabPageDetail.Controls.Add(this.lblInfoTable2);
             this.tabPageDetail.Controls.Add(this.lblInfoTable1);
             this.tabPageDetail.Controls.Add(this.lblRecords2);
-            this.tabPageDetail.Controls.Add(this.dataGridViewer2);
             this.tabPageDetail.Controls.Add(this.lblRecords1);
-            this.tabPageDetail.Controls.Add(this.dataGridViewer1);
             this.tabPageDetail.Controls.Add(this.btnSync);
             this.tabPageDetail.Controls.Add(this.lvDetailTables);
             this.tabPageDetail.Location = new System.Drawing.Point(4, 22);
             this.tabPageDetail.Name = "tabPageDetail";
             this.tabPageDetail.Padding = new System.Windows.Forms.Padding(3);
-            this.tabPageDetail.Size = new System.Drawing.Size(771, 568);
+            this.tabPageDetail.Size = new System.Drawing.Size(816, 643);
             this.tabPageDetail.TabIndex = 2;
             this.tabPageDetail.Text = "Detalles datos y sincronización";
             this.tabPageDetail.UseVisualStyleBackColor = true;
@@ -736,9 +745,9 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             this.label13.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.label13.ForeColor = System.Drawing.Color.Red;
-            this.label13.Location = new System.Drawing.Point(604, 348);
+            this.label13.Location = new System.Drawing.Point(626, 339);
             this.label13.Name = "label13";
-            this.label13.Size = new System.Drawing.Size(141, 140);
+            this.label13.Size = new System.Drawing.Size(146, 157);
             this.label13.TabIndex = 19;
             this.label13.Text = "Importante! Al sincronizar se leen los datos de la BD Origen y se escriben en la " +
     "Destino. El origen NO se modifica.";
@@ -747,7 +756,7 @@
             // 
             this.lblElapsedSync.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.lblElapsedSync.AutoSize = true;
-            this.lblElapsedSync.Location = new System.Drawing.Point(601, 537);
+            this.lblElapsedSync.Location = new System.Drawing.Point(626, 617);
             this.lblElapsedSync.Name = "lblElapsedSync";
             this.lblElapsedSync.Size = new System.Drawing.Size(94, 13);
             this.lblElapsedSync.TabIndex = 18;
@@ -758,7 +767,7 @@
             // 
             this.lblStatusDetails.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.lblStatusDetails.AutoSize = true;
-            this.lblStatusDetails.Location = new System.Drawing.Point(305, 537);
+            this.lblStatusDetails.Location = new System.Drawing.Point(308, 607);
             this.lblStatusDetails.Name = "lblStatusDetails";
             this.lblStatusDetails.Size = new System.Drawing.Size(43, 13);
             this.lblStatusDetails.TabIndex = 17;
@@ -768,7 +777,7 @@
             // pgbDetails
             // 
             this.pgbDetails.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.pgbDetails.Location = new System.Drawing.Point(6, 537);
+            this.pgbDetails.Location = new System.Drawing.Point(9, 607);
             this.pgbDetails.Name = "pgbDetails";
             this.pgbDetails.Size = new System.Drawing.Size(293, 23);
             this.pgbDetails.Style = System.Windows.Forms.ProgressBarStyle.Continuous;
@@ -781,7 +790,7 @@
             this.groupBox3.Controls.Add(this.chkDataEqual);
             this.groupBox3.Controls.Add(this.pictureBox7);
             this.groupBox3.Controls.Add(this.chkDataNotEqual);
-            this.groupBox3.Location = new System.Drawing.Point(374, 18);
+            this.groupBox3.Location = new System.Drawing.Point(419, 18);
             this.groupBox3.Name = "groupBox3";
             this.groupBox3.Size = new System.Drawing.Size(361, 59);
             this.groupBox3.TabIndex = 15;
@@ -839,7 +848,7 @@
             this.lblInfoTable2.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.lblInfoTable2.AutoSize = true;
             this.lblInfoTable2.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblInfoTable2.Location = new System.Drawing.Point(302, 329);
+            this.lblInfoTable2.Location = new System.Drawing.Point(302, 339);
             this.lblInfoTable2.Name = "lblInfoTable2";
             this.lblInfoTable2.Size = new System.Drawing.Size(79, 13);
             this.lblInfoTable2.TabIndex = 9;
@@ -850,7 +859,7 @@
             this.lblInfoTable1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.lblInfoTable1.AutoSize = true;
             this.lblInfoTable1.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblInfoTable1.Location = new System.Drawing.Point(6, 329);
+            this.lblInfoTable1.Location = new System.Drawing.Point(6, 339);
             this.lblInfoTable1.Name = "lblInfoTable1";
             this.lblInfoTable1.Size = new System.Drawing.Size(79, 13);
             this.lblInfoTable1.TabIndex = 8;
@@ -860,7 +869,7 @@
             // 
             this.lblRecords2.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.lblRecords2.AutoSize = true;
-            this.lblRecords2.Location = new System.Drawing.Point(302, 348);
+            this.lblRecords2.Location = new System.Drawing.Point(302, 358);
             this.lblRecords2.Name = "lblRecords2";
             this.lblRecords2.Size = new System.Drawing.Size(66, 13);
             this.lblRecords2.TabIndex = 7;
@@ -868,9 +877,8 @@
             // 
             // dataGridViewer2
             // 
-            this.dataGridViewer2.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.dataGridViewer2.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            this.dataGridViewer2.Location = new System.Drawing.Point(305, 381);
+            this.dataGridViewer2.Location = new System.Drawing.Point(303, 6);
             this.dataGridViewer2.Name = "dataGridViewer2";
             this.dataGridViewer2.Size = new System.Drawing.Size(293, 150);
             this.dataGridViewer2.TabIndex = 6;
@@ -880,7 +888,7 @@
             // 
             this.lblRecords1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.lblRecords1.AutoSize = true;
-            this.lblRecords1.Location = new System.Drawing.Point(6, 348);
+            this.lblRecords1.Location = new System.Drawing.Point(6, 358);
             this.lblRecords1.Name = "lblRecords1";
             this.lblRecords1.Size = new System.Drawing.Size(66, 13);
             this.lblRecords1.TabIndex = 5;
@@ -888,9 +896,8 @@
             // 
             // dataGridViewer1
             // 
-            this.dataGridViewer1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.dataGridViewer1.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            this.dataGridViewer1.Location = new System.Drawing.Point(6, 381);
+            this.dataGridViewer1.Location = new System.Drawing.Point(4, 6);
             this.dataGridViewer1.Name = "dataGridViewer1";
             this.dataGridViewer1.Size = new System.Drawing.Size(293, 150);
             this.dataGridViewer1.TabIndex = 4;
@@ -899,7 +906,7 @@
             // btnSync
             // 
             this.btnSync.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.btnSync.Location = new System.Drawing.Point(604, 508);
+            this.btnSync.Location = new System.Drawing.Point(629, 588);
             this.btnSync.Name = "btnSync";
             this.btnSync.Size = new System.Drawing.Size(75, 23);
             this.btnSync.TabIndex = 3;
@@ -927,7 +934,7 @@
             this.lvDetailTables.HideSelection = false;
             this.lvDetailTables.Location = new System.Drawing.Point(6, 83);
             this.lvDetailTables.Name = "lvDetailTables";
-            this.lvDetailTables.Size = new System.Drawing.Size(729, 233);
+            this.lvDetailTables.Size = new System.Drawing.Size(774, 240);
             this.lvDetailTables.SmallImageList = this.imageList1;
             this.lvDetailTables.TabIndex = 2;
             this.toolTipSincronizer.SetToolTip(this.lvDetailTables, "Haga click en un registro para ver la comparación, si son más de 1000 registros n" +
@@ -1013,11 +1020,62 @@
             this.bgwSync.ProgressChanged += new System.ComponentModel.ProgressChangedEventHandler(this.bgwSync_ProgressChanged);
             this.bgwSync.RunWorkerCompleted += new System.ComponentModel.RunWorkerCompletedEventHandler(this.bgwSync_RunWorkerCompleted);
             // 
+            // tabControl1
+            // 
+            this.tabControl1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.tabControl1.Controls.Add(this.tabPage1);
+            this.tabControl1.Controls.Add(this.tabPage2);
+            this.tabControl1.Location = new System.Drawing.Point(9, 391);
+            this.tabControl1.Name = "tabControl1";
+            this.tabControl1.SelectedIndex = 0;
+            this.tabControl1.Size = new System.Drawing.Size(611, 196);
+            this.tabControl1.TabIndex = 20;
+            // 
+            // tabPage1
+            // 
+            this.tabPage1.Controls.Add(this.dataGridViewer1);
+            this.tabPage1.Controls.Add(this.dataGridViewer2);
+            this.tabPage1.Location = new System.Drawing.Point(4, 22);
+            this.tabPage1.Name = "tabPage1";
+            this.tabPage1.Padding = new System.Windows.Forms.Padding(3);
+            this.tabPage1.Size = new System.Drawing.Size(603, 170);
+            this.tabPage1.TabIndex = 0;
+            this.tabPage1.Text = "Datos";
+            this.tabPage1.UseVisualStyleBackColor = true;
+            // 
+            // tabPage2
+            // 
+            this.tabPage2.Controls.Add(this.grvStruct1);
+            this.tabPage2.Controls.Add(this.grvStruct2);
+            this.tabPage2.Location = new System.Drawing.Point(4, 22);
+            this.tabPage2.Name = "tabPage2";
+            this.tabPage2.Padding = new System.Windows.Forms.Padding(3);
+            this.tabPage2.Size = new System.Drawing.Size(603, 170);
+            this.tabPage2.TabIndex = 1;
+            this.tabPage2.Text = "Estructura";
+            this.tabPage2.UseVisualStyleBackColor = true;
+            // 
+            // grvStruct1
+            // 
+            this.grvStruct1.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            this.grvStruct1.Location = new System.Drawing.Point(5, 10);
+            this.grvStruct1.Name = "grvStruct1";
+            this.grvStruct1.Size = new System.Drawing.Size(293, 150);
+            this.grvStruct1.TabIndex = 7;
+            // 
+            // grvStruct2
+            // 
+            this.grvStruct2.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            this.grvStruct2.Location = new System.Drawing.Point(304, 10);
+            this.grvStruct2.Name = "grvStruct2";
+            this.grvStruct2.Size = new System.Drawing.Size(293, 150);
+            this.grvStruct2.TabIndex = 8;
+            // 
             // FrmComparer
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(803, 620);
+            this.ClientSize = new System.Drawing.Size(848, 695);
             this.Controls.Add(this.tbComparador);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.Name = "FrmComparer";
@@ -1045,6 +1103,11 @@
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox7)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.dataGridViewer2)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.dataGridViewer1)).EndInit();
+            this.tabControl1.ResumeLayout(false);
+            this.tabPage1.ResumeLayout(false);
+            this.tabPage2.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.grvStruct1)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.grvStruct2)).EndInit();
             this.ResumeLayout(false);
 
         }
@@ -1139,6 +1202,11 @@
         private System.Windows.Forms.Label label12;
         private System.Windows.Forms.Label label13;
         private System.Windows.Forms.Button button1;
+        private System.Windows.Forms.TabControl tabControl1;
+        private System.Windows.Forms.TabPage tabPage1;
+        private System.Windows.Forms.TabPage tabPage2;
+        private System.Windows.Forms.DataGridView grvStruct1;
+        private System.Windows.Forms.DataGridView grvStruct2;
     }
 }
 
