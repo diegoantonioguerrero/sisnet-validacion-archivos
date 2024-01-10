@@ -72,5 +72,6 @@
         SyncReadingPackage,
         SyncPreparingPool,
         SyncCreateAllFK,
+        SyncCreatedTable,
     }
 }

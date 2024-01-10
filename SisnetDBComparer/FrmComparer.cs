@@ -911,7 +911,6 @@ namespace SisnetDBComparer
             // Comparar DataTables
             dataEquals = SonDataTablesIguales(filledTable1, filledTable2, true);
 
-            //coco
             this.LoadStructure();
             this.bgwDetails.ReportProgress(100, StatusDetails.ComparacionFinished);
 
@@ -954,6 +953,7 @@ namespace SisnetDBComparer
             this.bgwSync.ReportProgress(0, StatusSync.SyncDataStart);
 
             this.DeleteAllFK();
+            this.CreateStruct();
 
             List<ItemDTO> tablesToSync = this.GetTablesToSync();
             int num = 0;
@@ -975,7 +975,6 @@ namespace SisnetDBComparer
                     this.bgwSync.ReportProgress(count, new SyncResult
                     {
                         StatusSync = StatusSync.LoadingTables,
-                        //Index = i,
                         Item = tableToSync
                     });
 
@@ -1032,6 +1031,84 @@ namespace SisnetDBComparer
             this.bgwSync.ReportProgress(100, StatusSync.SyncDataFinished);
 
 
+        }
+
+        private void CreateStruct()
+        {
+            List<ItemDTO> tablesToSync = (from item in this.totalData
+                                          where
+                                          !string.IsNullOrEmpty(item.Table1) &&
+                                          string.IsNullOrEmpty(item.Table2)
+                                          select item).ToList();
+
+            DataTable foreignKeys = this.dbManager1.GetForeginKeys(null);
+            // si la tabla no existe se crea en el otro servidor.
+
+            int num = 0;
+            foreach (ItemDTO rowToCreate in tablesToSync)
+            {
+                string createTableSentence;
+                int count = num * 100 / tablesToSync.Count;
+
+                this.bgwSync.ReportProgress(count, new SyncResult
+                {
+                    StatusSync = StatusSync.SyncCreatingTable,
+                    Item = rowToCreate
+                });
+
+                DataRow definition = (from DataRow row in foreignKeys.Rows
+                                      where row["table_origin"].ToString() ==
+                                      rowToCreate.Table1
+                                      select row
+                                       ).SingleOrDefault();
+                if (definition != null)
+                {
+                    DataTable fieldsOrigin = this.dbManager1.GetFieldsAdvance(rowToCreate.Table1);
+                    DataTable fieldsDestination = this.dbManager1.GetFieldsAdvance(definition["table_destination"].ToString());
+
+                    DataRow fieldOrigin = (from DataRow row in fieldsOrigin.Rows
+                                           where definition["column_origin"].ToString() ==
+                                           row["column_name"].ToString()
+                                           select row
+                                          ).Single();
+
+                    DataRow fieldDestination = (from DataRow row in fieldsDestination.Rows
+                                                where definition["column_destination"].ToString() ==
+                                                row["column_name"].ToString()
+                                                select row
+                                          ).Single();
+
+                    if (fieldOrigin["data_type"].ToString() == fieldDestination["data_type"].ToString())
+                    {
+                        createTableSentence = this.dbManager1.GetCreateSchemaTable(rowToCreate.Table1);
+                    }
+                    else
+                    {
+                        if (fieldDestination["column_name"].ToString() != fieldOrigin["column_name"].ToString())
+                        {
+                            fieldDestination["column_name"] = fieldOrigin["column_name"];
+                        }
+                        createTableSentence = this.dbManager1.GetCreateSchemaTable(rowToCreate.Table1, fieldDestination);
+                    }
+                }
+                else
+                {
+                    createTableSentence = this.dbManager1.GetCreateSchemaTable(rowToCreate.Table1);
+                }
+                this.dbManager2.ExecuteSentence(createTableSentence);
+                rowToCreate.Table2 = rowToCreate.Table1;
+
+                //Thread.Sleep(4000);
+                this.bgwSync.ReportProgress(count, new SyncResult
+                {
+                    StatusSync = StatusSync.SyncCreatedTable,
+                    Item = rowToCreate
+                });
+                //Thread.Sleep(4000);
+
+                num++;
+
+            }
         }
 
         private void DeleteAllFK()
@@ -1163,9 +1240,11 @@ namespace SisnetDBComparer
             // Utilizando ThreadPool para simular Parallel.ForEach
             ManualResetEvent resetEvent = new ManualResetEvent(false);
 
-            Hashtable hsDt = new Hashtable();
-            hsDt.Add("table1", tableToSync.Table1);
-            hsDt.Add("table2", tableToSync.Table2);
+            Hashtable hsDt = new Hashtable
+            {
+                { "table1", tableToSync.Table1 },
+                { "table2", tableToSync.Table2 }
+            };
             DataTable tabla1 = null;
             DataTable tabla2 = null;
             int remainingTasks = hsDt.Count;
@@ -1744,19 +1823,6 @@ namespace SisnetDBComparer
         {
             string tableName = tableToSync.Table1;
 
-            // si la tabla no existe se crea en el otro servidor.
-            if (tabla2 == null)
-            {
-                this.bgwSync.ReportProgress(25, new SyncResult
-                {
-                    StatusSync = StatusSync.SyncCreatingTable,
-                    Item = tableToSync
-                });
-
-                string createTableSentence = this.dbManager1.GetCreateSchemaTable(tableName);
-                this.dbManager2.ExecuteSentence(createTableSentence);
-                tabla2 = this.dbManager2.GetTableData(tableName, null, null, true);
-            }
 
             this.bgwSync.ReportProgress(50, new SyncResult
             {
@@ -1793,6 +1859,7 @@ namespace SisnetDBComparer
 
             string[] totalColumns = (from DataColumn column in referenceColums.Columns
                                      select column.ColumnName).ToArray();
+
 #if DEBUG
             string separator = Environment.NewLine;
 #else
@@ -1815,6 +1882,7 @@ namespace SisnetDBComparer
 
             List<int> badRows = new List<int>();
             int localRecord = 0;
+            bool withPoolingConnection = true;
 
             try
             {
@@ -1824,14 +1892,12 @@ namespace SisnetDBComparer
                     Item = tableToSync
                 });
 
-                //this.dbManager1.OpenConnection();
                 this.dbManager2.StartConnectionPool(this.txtUser2.Text, this.txtPwd2.Text);
 
 
                 // Definir el tamaño del subciclo (10 en este caso)
                 int subcycleSize = 1000;
                 int paquete = 1;
-
                 List<DataRow> tabla1Rows = (from DataRow row in tabla1.Rows select row).ToList();
 
 
@@ -1849,6 +1915,12 @@ namespace SisnetDBComparer
                     // Utilizando ThreadPool para simular Parallel.ForEach
                     ManualResetEvent resetEvent = new ManualResetEvent(false);
                     DataTable tablePackage;
+
+                    //se mantienen abiertas las conexiones para obtener datos del origen y destino
+                    this.dbManager1.OpenRetainConnection();
+                    this.dbManager2.OpenRetainConnection();
+
+                    this.dbManager2.BeginPoolTransaction();
                     // Utilizar Take para obtener el subconjunto de 10 elementos
                     IEnumerable<DataRow> subcycle;
                     if (tableToSync.LoadedOnlySchema)
@@ -1889,9 +1961,6 @@ namespace SisnetDBComparer
                                          select column).ToArray();
 
                     int remainingTasks = subcycle.Count();
-
-                    this.dbManager1.OpenRetainConnection();
-                    this.dbManager2.OpenRetainConnection();
 
                     foreach (DataRow row in subcycle)
                     {
@@ -1947,12 +2016,6 @@ namespace SisnetDBComparer
                                     rowData = tabla2.Select(filter).FirstOrDefault();
                                 }
 
-
-
-                                //dbManagerTo2 = DBManager.GetInstance();
-
-                                //dbManagerTo2.SetDBManager(this.txtHost2.Text, namebd2, this.txtUser2.Text, this.txtPwd2.Text, false);
-
                                 // si no encuentra el registro, lo inserta
                                 if (rowData == null)
                                 {
@@ -1965,7 +2028,8 @@ namespace SisnetDBComparer
                                                                  ).ToArray();
 
 
-                                    this.dbManager2.ExecuteRecord(prepareInsert, dataToInsert, true, this.txtUser2.Text, this.txtPwd2.Text);
+                                    this.dbManager2.ExecuteRecord(prepareInsert, dataToInsert, withPoolingConnection);
+
 
                                 }
                                 // se comparan los datos y si alguno no coincide se borra el registro y se inserta
@@ -2038,8 +2102,8 @@ namespace SisnetDBComparer
                                                         rowTable1[column.ColumnName]
                                                                  ).ToArray();
 
-                                        this.dbManager2.ExecuteRecord(prepareDelete, valuesWithPrimaryKey, true, this.txtUser2.Text, this.txtPwd2.Text);
-                                        this.dbManager2.ExecuteRecord(prepareInsert, dataToInsert, true, this.txtUser2.Text, this.txtPwd2.Text);
+                                        this.dbManager2.ExecuteRecord(prepareDelete, valuesWithPrimaryKey, withPoolingConnection);
+                                        this.dbManager2.ExecuteRecord(prepareInsert, dataToInsert, withPoolingConnection);
                                     }
                                 }
 
@@ -2123,8 +2187,6 @@ namespace SisnetDBComparer
                         }
                         );
 
-
-
                     }
 
                     // Realiza la operación para cada elemento
@@ -2142,6 +2204,9 @@ namespace SisnetDBComparer
                         throw globalException;
                     }
 
+                    this.dbManager2.CommithPoolTransaction();
+
+
                     paquete++;
 
                 }
@@ -2149,6 +2214,7 @@ namespace SisnetDBComparer
             }
             catch (Exception ex)
             {
+                this.dbManager2.RollbackPoolTransaction();
                 throw ex;
             }
             finally
@@ -2173,6 +2239,7 @@ namespace SisnetDBComparer
         {
             if (this.btnSync.Text == "Cancelar")
             {
+                this.btnSync.Enabled = false;
                 if (this.bgwSync.IsBusy)
                 {
                     this.bgwSync.CancelAsync();
@@ -2606,6 +2673,10 @@ namespace SisnetDBComparer
                     case StatusSync.SyncCreatingTable:
                         this.lblStatusDetails.Text = $"Creando tabla {syncResult.Item.Table1}";
                         break;
+                    case StatusSync.SyncCreatedTable:
+                        this.lblStatusDetails.Text = $"Tabla {syncResult.Item.Table1} creada";
+                        this.RefreshCreatedTable((SyncResult)e.UserState);
+                        break;
                     case StatusSync.SyncPreparingSentences:
                         this.lblStatusDetails.Text = $"Preparando sentencias tabla {syncResult.Item.Table1}";
                         break;
@@ -2629,6 +2700,20 @@ namespace SisnetDBComparer
                 this.lblStatusDetails.Invalidate();
                 this.lblStatusDetails.Refresh();
             }
+        }
+
+        private void RefreshCreatedTable(SyncResult userState)
+        {
+            ListViewItem viewItem = (from ListViewItem item
+               in this.lvDetailTables.Items
+                                     where string.Compare(userState.Item.Table1, item.SubItems[(int)ColIndexDetail.Tabla1].Text) == 0
+                                     select item).SingleOrDefault();
+            if (viewItem != null)
+            {
+                viewItem.SubItems[(int)ColIndexDetail.Tabla2].Text = userState.Item.Table1;
+                viewItem.EnsureVisible();
+            }
+
         }
 
         private void EnsureVisibleDetailSync(int index, bool isSucces)
@@ -2659,7 +2744,8 @@ namespace SisnetDBComparer
 
             if (e.Cancelled)
             {
-                //this.lblStatusProgress.Text = "Comparación cancelada";
+                this.btnSync.Enabled = true;
+                this.lblStatusDetails.Text = "Sincronización cancelada";
                 MessageBox.Show("El proceso de sincronización ha sido cancelado", "Sisnet", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
                 return;
             }
