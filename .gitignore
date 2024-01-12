@@ -13,6 +13,7 @@ VaccumPersonalizado/obj/
 SisnetDBComparer/bin/
 SisnetDBComparer/obj/
 packages/
+.vs/
 .vs/SisnetValidacionArchivos/SisnetValidacionArchivos/FileContentIndex/
 .vs/SisnetValidacionArchivos/v17/.suo
 SisnetValidacionArchivos/.vs/SisnetValidacionArchivos/FileContentIndex/
