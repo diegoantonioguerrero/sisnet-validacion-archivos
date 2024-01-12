@@ -508,7 +508,7 @@ namespace SisnetServiceConversor
                 {
                     isValidName = false;
                 }
-                else if (!string.IsNullOrEmpty(ff.Extension) && string.Compare(ff.Extension, ".crdownlOad", true) == 0)
+                else if (!string.IsNullOrEmpty(ff.Extension) && string.Compare(ff.Extension, ".crdownload", true) == 0)
                 {
                     isValidName = false;
                     errorMessage = "EL ARCHIVO TIENE UNA EXTENSION INVALIDA";
