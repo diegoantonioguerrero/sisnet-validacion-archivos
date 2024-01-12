@@ -87,6 +87,13 @@
             this.imageList1 = new System.Windows.Forms.ImageList(this.components);
             this.treeView1 = new System.Windows.Forms.TreeView();
             this.tabPageDetail = new System.Windows.Forms.TabPage();
+            this.tabControl1 = new System.Windows.Forms.TabControl();
+            this.tabPage1 = new System.Windows.Forms.TabPage();
+            this.dataGridViewer1 = new System.Windows.Forms.DataGridView();
+            this.dataGridViewer2 = new System.Windows.Forms.DataGridView();
+            this.tabPage2 = new System.Windows.Forms.TabPage();
+            this.grvStruct1 = new System.Windows.Forms.DataGridView();
+            this.grvStruct2 = new System.Windows.Forms.DataGridView();
             this.label13 = new System.Windows.Forms.Label();
             this.lblElapsedSync = new System.Windows.Forms.Label();
             this.lblStatusDetails = new System.Windows.Forms.Label();
@@ -99,9 +106,7 @@
             this.lblInfoTable2 = new System.Windows.Forms.Label();
             this.lblInfoTable1 = new System.Windows.Forms.Label();
             this.lblRecords2 = new System.Windows.Forms.Label();
-            this.dataGridViewer2 = new System.Windows.Forms.DataGridView();
             this.lblRecords1 = new System.Windows.Forms.Label();
-            this.dataGridViewer1 = new System.Windows.Forms.DataGridView();
             this.btnSync = new System.Windows.Forms.Button();
             this.lvDetailTables = new System.Windows.Forms.ListView();
             this.columnHeader1 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
@@ -118,11 +123,8 @@
             this.bgwDetails = new System.ComponentModel.BackgroundWorker();
             this.bgwSync = new System.ComponentModel.BackgroundWorker();
             this.toolTipSincronizer = new System.Windows.Forms.ToolTip(this.components);
-            this.tabControl1 = new System.Windows.Forms.TabControl();
-            this.tabPage1 = new System.Windows.Forms.TabPage();
-            this.tabPage2 = new System.Windows.Forms.TabPage();
-            this.grvStruct1 = new System.Windows.Forms.DataGridView();
-            this.grvStruct2 = new System.Windows.Forms.DataGridView();
+            this.btnDirectory = new System.Windows.Forms.Button();
+            this.txtRutaDirectorio = new System.Windows.Forms.TextBox();
             this.groupBox1.SuspendLayout();
             this.groupBox2.SuspendLayout();
             this.tbComparador.SuspendLayout();
@@ -134,16 +136,16 @@
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox4)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox3)).BeginInit();
             this.tabPageDetail.SuspendLayout();
-            this.groupBox3.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.pictureBox5)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.pictureBox7)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.dataGridViewer2)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.dataGridViewer1)).BeginInit();
             this.tabControl1.SuspendLayout();
             this.tabPage1.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.dataGridViewer1)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.dataGridViewer2)).BeginInit();
             this.tabPage2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.grvStruct1)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.grvStruct2)).BeginInit();
+            this.groupBox3.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.pictureBox5)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.pictureBox7)).BeginInit();
             this.SuspendLayout();
             // 
             // groupBox1
@@ -393,7 +395,7 @@
             this.tabPageConexion.Location = new System.Drawing.Point(4, 22);
             this.tabPageConexion.Name = "tabPageConexion";
             this.tabPageConexion.Padding = new System.Windows.Forms.Padding(3);
-            this.tabPageConexion.Size = new System.Drawing.Size(771, 568);
+            this.tabPageConexion.Size = new System.Drawing.Size(816, 643);
             this.tabPageConexion.TabIndex = 0;
             this.tabPageConexion.Text = "Conexión";
             this.tabPageConexion.UseVisualStyleBackColor = true;
@@ -719,6 +721,8 @@
             // 
             // tabPageDetail
             // 
+            this.tabPageDetail.Controls.Add(this.txtRutaDirectorio);
+            this.tabPageDetail.Controls.Add(this.btnDirectory);
             this.tabPageDetail.Controls.Add(this.tabControl1);
             this.tabPageDetail.Controls.Add(this.label13);
             this.tabPageDetail.Controls.Add(this.lblElapsedSync);
@@ -738,6 +742,75 @@
             this.tabPageDetail.TabIndex = 2;
             this.tabPageDetail.Text = "Detalles datos y sincronización";
             this.tabPageDetail.UseVisualStyleBackColor = true;
+            // 
+            // tabControl1
+            // 
+            this.tabControl1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.tabControl1.Controls.Add(this.tabPage1);
+            this.tabControl1.Controls.Add(this.tabPage2);
+            this.tabControl1.Location = new System.Drawing.Point(9, 391);
+            this.tabControl1.Name = "tabControl1";
+            this.tabControl1.SelectedIndex = 0;
+            this.tabControl1.Size = new System.Drawing.Size(611, 196);
+            this.tabControl1.TabIndex = 20;
+            // 
+            // tabPage1
+            // 
+            this.tabPage1.Controls.Add(this.dataGridViewer1);
+            this.tabPage1.Controls.Add(this.dataGridViewer2);
+            this.tabPage1.Location = new System.Drawing.Point(4, 22);
+            this.tabPage1.Name = "tabPage1";
+            this.tabPage1.Padding = new System.Windows.Forms.Padding(3);
+            this.tabPage1.Size = new System.Drawing.Size(603, 170);
+            this.tabPage1.TabIndex = 0;
+            this.tabPage1.Text = "Datos";
+            this.tabPage1.UseVisualStyleBackColor = true;
+            // 
+            // dataGridViewer1
+            // 
+            this.dataGridViewer1.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            this.dataGridViewer1.Location = new System.Drawing.Point(4, 6);
+            this.dataGridViewer1.Name = "dataGridViewer1";
+            this.dataGridViewer1.Size = new System.Drawing.Size(293, 150);
+            this.dataGridViewer1.TabIndex = 4;
+            this.dataGridViewer1.DataError += new System.Windows.Forms.DataGridViewDataErrorEventHandler(this.dataGridViewer1_DataError);
+            // 
+            // dataGridViewer2
+            // 
+            this.dataGridViewer2.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            this.dataGridViewer2.Location = new System.Drawing.Point(303, 6);
+            this.dataGridViewer2.Name = "dataGridViewer2";
+            this.dataGridViewer2.Size = new System.Drawing.Size(293, 150);
+            this.dataGridViewer2.TabIndex = 6;
+            this.dataGridViewer2.DataError += new System.Windows.Forms.DataGridViewDataErrorEventHandler(this.dataGridViewer2_DataError);
+            // 
+            // tabPage2
+            // 
+            this.tabPage2.Controls.Add(this.grvStruct1);
+            this.tabPage2.Controls.Add(this.grvStruct2);
+            this.tabPage2.Location = new System.Drawing.Point(4, 22);
+            this.tabPage2.Name = "tabPage2";
+            this.tabPage2.Padding = new System.Windows.Forms.Padding(3);
+            this.tabPage2.Size = new System.Drawing.Size(603, 170);
+            this.tabPage2.TabIndex = 1;
+            this.tabPage2.Text = "Estructura";
+            this.tabPage2.UseVisualStyleBackColor = true;
+            // 
+            // grvStruct1
+            // 
+            this.grvStruct1.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            this.grvStruct1.Location = new System.Drawing.Point(5, 10);
+            this.grvStruct1.Name = "grvStruct1";
+            this.grvStruct1.Size = new System.Drawing.Size(293, 150);
+            this.grvStruct1.TabIndex = 7;
+            // 
+            // grvStruct2
+            // 
+            this.grvStruct2.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            this.grvStruct2.Location = new System.Drawing.Point(304, 10);
+            this.grvStruct2.Name = "grvStruct2";
+            this.grvStruct2.Size = new System.Drawing.Size(293, 150);
+            this.grvStruct2.TabIndex = 8;
             // 
             // label13
             // 
@@ -875,15 +948,6 @@
             this.lblRecords2.TabIndex = 7;
             this.lblRecords2.Text = "Registros : 0";
             // 
-            // dataGridViewer2
-            // 
-            this.dataGridViewer2.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            this.dataGridViewer2.Location = new System.Drawing.Point(303, 6);
-            this.dataGridViewer2.Name = "dataGridViewer2";
-            this.dataGridViewer2.Size = new System.Drawing.Size(293, 150);
-            this.dataGridViewer2.TabIndex = 6;
-            this.dataGridViewer2.DataError += new System.Windows.Forms.DataGridViewDataErrorEventHandler(this.dataGridViewer2_DataError);
-            // 
             // lblRecords1
             // 
             this.lblRecords1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
@@ -893,15 +957,6 @@
             this.lblRecords1.Size = new System.Drawing.Size(66, 13);
             this.lblRecords1.TabIndex = 5;
             this.lblRecords1.Text = "Registros : 0";
-            // 
-            // dataGridViewer1
-            // 
-            this.dataGridViewer1.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            this.dataGridViewer1.Location = new System.Drawing.Point(4, 6);
-            this.dataGridViewer1.Name = "dataGridViewer1";
-            this.dataGridViewer1.Size = new System.Drawing.Size(293, 150);
-            this.dataGridViewer1.TabIndex = 4;
-            this.dataGridViewer1.DataError += new System.Windows.Forms.DataGridViewDataErrorEventHandler(this.dataGridViewer1_DataError);
             // 
             // btnSync
             // 
@@ -1020,56 +1075,22 @@
             this.bgwSync.ProgressChanged += new System.ComponentModel.ProgressChangedEventHandler(this.bgwSync_ProgressChanged);
             this.bgwSync.RunWorkerCompleted += new System.ComponentModel.RunWorkerCompletedEventHandler(this.bgwSync_RunWorkerCompleted);
             // 
-            // tabControl1
+            // btnDirectory
             // 
-            this.tabControl1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.tabControl1.Controls.Add(this.tabPage1);
-            this.tabControl1.Controls.Add(this.tabPage2);
-            this.tabControl1.Location = new System.Drawing.Point(9, 391);
-            this.tabControl1.Name = "tabControl1";
-            this.tabControl1.SelectedIndex = 0;
-            this.tabControl1.Size = new System.Drawing.Size(611, 196);
-            this.tabControl1.TabIndex = 20;
+            this.btnDirectory.Location = new System.Drawing.Point(732, 521);
+            this.btnDirectory.Name = "btnDirectory";
+            this.btnDirectory.Size = new System.Drawing.Size(75, 23);
+            this.btnDirectory.TabIndex = 21;
+            this.btnDirectory.Text = "Directorio";
+            this.btnDirectory.UseVisualStyleBackColor = true;
+            this.btnDirectory.Click += new System.EventHandler(this.btnDirectory_Click);
             // 
-            // tabPage1
+            // txtRutaDirectorio
             // 
-            this.tabPage1.Controls.Add(this.dataGridViewer1);
-            this.tabPage1.Controls.Add(this.dataGridViewer2);
-            this.tabPage1.Location = new System.Drawing.Point(4, 22);
-            this.tabPage1.Name = "tabPage1";
-            this.tabPage1.Padding = new System.Windows.Forms.Padding(3);
-            this.tabPage1.Size = new System.Drawing.Size(603, 170);
-            this.tabPage1.TabIndex = 0;
-            this.tabPage1.Text = "Datos";
-            this.tabPage1.UseVisualStyleBackColor = true;
-            // 
-            // tabPage2
-            // 
-            this.tabPage2.Controls.Add(this.grvStruct1);
-            this.tabPage2.Controls.Add(this.grvStruct2);
-            this.tabPage2.Location = new System.Drawing.Point(4, 22);
-            this.tabPage2.Name = "tabPage2";
-            this.tabPage2.Padding = new System.Windows.Forms.Padding(3);
-            this.tabPage2.Size = new System.Drawing.Size(603, 170);
-            this.tabPage2.TabIndex = 1;
-            this.tabPage2.Text = "Estructura";
-            this.tabPage2.UseVisualStyleBackColor = true;
-            // 
-            // grvStruct1
-            // 
-            this.grvStruct1.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            this.grvStruct1.Location = new System.Drawing.Point(5, 10);
-            this.grvStruct1.Name = "grvStruct1";
-            this.grvStruct1.Size = new System.Drawing.Size(293, 150);
-            this.grvStruct1.TabIndex = 7;
-            // 
-            // grvStruct2
-            // 
-            this.grvStruct2.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            this.grvStruct2.Location = new System.Drawing.Point(304, 10);
-            this.grvStruct2.Name = "grvStruct2";
-            this.grvStruct2.Size = new System.Drawing.Size(293, 150);
-            this.grvStruct2.TabIndex = 8;
+            this.txtRutaDirectorio.Location = new System.Drawing.Point(626, 524);
+            this.txtRutaDirectorio.Name = "txtRutaDirectorio";
+            this.txtRutaDirectorio.Size = new System.Drawing.Size(100, 20);
+            this.txtRutaDirectorio.TabIndex = 22;
             // 
             // FrmComparer
             // 
@@ -1097,17 +1118,17 @@
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox3)).EndInit();
             this.tabPageDetail.ResumeLayout(false);
             this.tabPageDetail.PerformLayout();
+            this.tabControl1.ResumeLayout(false);
+            this.tabPage1.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.dataGridViewer1)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.dataGridViewer2)).EndInit();
+            this.tabPage2.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.grvStruct1)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.grvStruct2)).EndInit();
             this.groupBox3.ResumeLayout(false);
             this.groupBox3.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox5)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox7)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.dataGridViewer2)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.dataGridViewer1)).EndInit();
-            this.tabControl1.ResumeLayout(false);
-            this.tabPage1.ResumeLayout(false);
-            this.tabPage2.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)(this.grvStruct1)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.grvStruct2)).EndInit();
             this.ResumeLayout(false);
 
         }
@@ -1207,6 +1228,8 @@
         private System.Windows.Forms.TabPage tabPage2;
         private System.Windows.Forms.DataGridView grvStruct1;
         private System.Windows.Forms.DataGridView grvStruct2;
+        private System.Windows.Forms.Button btnDirectory;
+        private System.Windows.Forms.TextBox txtRutaDirectorio;
     }
 }
 

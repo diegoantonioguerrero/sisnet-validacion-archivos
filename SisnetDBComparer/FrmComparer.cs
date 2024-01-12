@@ -69,6 +69,8 @@ namespace SisnetDBComparer
 #if !DEBUG
             this.txtHost1.Text = "192.168.0.3";
             this.txtPort2.Text = "5432";
+#else
+            this.txtRutaDirectorio.Text = @"\\DESKTOP-DIEGO\bkpsA";
 #endif
 
         }
@@ -1860,6 +1862,10 @@ namespace SisnetDBComparer
             string[] totalColumns = (from DataColumn column in referenceColums.Columns
                                      select column.ColumnName).ToArray();
 
+            bool withFilles = (from DataColumn column in referenceColums.Columns
+                               where column.DataType == typeof(byte[])
+                               select column.ColumnName).Any();
+
 #if DEBUG
             string separator = Environment.NewLine;
 #else
@@ -1892,6 +1898,28 @@ namespace SisnetDBComparer
                     Item = tableToSync
                 });
 
+                //se mantienen abiertas las conexiones para obtener datos del origen y destino
+                this.dbManager1.OpenRetainConnection();
+                this.dbManager2.OpenRetainConnection();
+
+                if (!withFilles)
+                {
+                    this.bgwSync.ReportProgress(25, new SyncResult
+                    {
+                        StatusSync = StatusSync.SyncReadingPackage,
+                        Item = tableToSync
+                    });
+
+                    this.dbManager1.CopyTableExport(tableToSync.Table1, this.txtRutaDirectorio.Text);
+                    if (this.bgwSync.CancellationPending)
+                    {
+                        e.Cancel = true;
+                        return false;
+                    }
+                    this.dbManager2.CopyTableImport(tableToSync.Table1, this.txtRutaDirectorio.Text);
+                    return true;
+                }
+
                 this.dbManager2.StartConnectionPool(this.txtUser2.Text, this.txtPwd2.Text);
 
 
@@ -1916,9 +1944,7 @@ namespace SisnetDBComparer
                     ManualResetEvent resetEvent = new ManualResetEvent(false);
                     DataTable tablePackage;
 
-                    //se mantienen abiertas las conexiones para obtener datos del origen y destino
-                    this.dbManager1.OpenRetainConnection();
-                    this.dbManager2.OpenRetainConnection();
+
 
                     this.dbManager2.BeginPoolTransaction();
                     // Utilizar Take para obtener el subconjunto de 10 elementos
@@ -2244,6 +2270,12 @@ namespace SisnetDBComparer
                 {
                     this.bgwSync.CancelAsync();
                 }
+                return;
+            }
+
+            if (this.txtRutaDirectorio.Text.Trim() == string.Empty)
+            {
+                MessageBox.Show("Seleccione el directorio compartido de intercambio", "Sincronización", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -2881,6 +2913,29 @@ namespace SisnetDBComparer
             catch (Exception ex)
             {
                 Console.WriteLine($"Error al ejecutar el comando: {ex.Message}");
+            }
+        }
+
+        private void btnDirectory_Click(object sender, EventArgs e)
+        {
+            using (FolderBrowserDialog folderBrowserDialog = new FolderBrowserDialog())
+            {
+                // Configuración del FolderBrowserDialog
+                folderBrowserDialog.Description = "Selecciona un directorio";
+                folderBrowserDialog.ShowNewFolderButton = true;
+
+                // Mostrar el diálogo
+                DialogResult result = folderBrowserDialog.ShowDialog();
+
+                // Verificar si el usuario hizo clic en "Aceptar"
+                if (result == DialogResult.OK)
+                {
+                    // Obtener la ruta del directorio seleccionado
+                    string directorioSeleccionado = folderBrowserDialog.SelectedPath;
+
+                    // Puedes hacer algo con la ruta seleccionada, por ejemplo, mostrarla en un TextBox
+                    txtRutaDirectorio.Text = directorioSeleccionado;
+                }
             }
         }
     }

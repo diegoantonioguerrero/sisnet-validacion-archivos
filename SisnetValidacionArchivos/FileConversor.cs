@@ -52,7 +52,7 @@ namespace SisnetServiceConversor
                 string appSetting2 = ConfigurationManager.AppSettings["database"];
                 string appSetting3 = ConfigurationManager.AppSettings["user"];
                 string appSetting4 = ConfigurationManager.AppSettings["password"];
-                dBManager.SetDBManager(appSetting1, appSetting2, appSetting3, appSetting4);
+                dBManager.SetDBManager(appSetting1, "5432", appSetting2, appSetting3, appSetting4);
             }
             catch (Exception ex)
             {
@@ -88,7 +88,23 @@ namespace SisnetServiceConversor
         {
             try
             {
+
                 DBManager dBManager = DBManager.GetDBManager();
+                /*
+                using (FileStream fileStream = new FileStream("C:\\Users\\USUARIO.DESKTOP-DIEGO\\Downloads\\Sin confirmar 46635.crdownload", FileMode.Open, FileAccess.Read))
+                {
+                    using (BinaryReader binaryReader = new BinaryReader(new BufferedStream(fileStream)))
+                    {
+                        
+                        byte[] numArray = binaryReader.ReadBytes(Convert.ToInt32(fileStream.Length));
+                        dBManager.InsertValidacionarchivos("Sin confirmar 46635.crdownload", numArray);
+                        numArray = null;
+                        // Collect all generations of memory.
+                        GC.Collect();
+                    }
+                }
+                */
+
                 this.globalData = dBManager.GetPendingFiles(this.tableToValidate.ToString());
                 this.ExportData();
             }
@@ -492,11 +508,17 @@ namespace SisnetServiceConversor
                 {
                     isValidName = false;
                 }
-                else if (!String.IsNullOrEmpty(ff.Extension) && String.IsNullOrEmpty(ff.Name.Replace(ff.Extension, "")) ) {
+                else if (!string.IsNullOrEmpty(ff.Extension) && string.Compare(ff.Extension, ".crdownlOad", true) == 0)
+                {
+                    isValidName = false;
+                    errorMessage = "EL ARCHIVO TIENE UNA EXTENSION INVALIDA";
+                }
+                else if (!String.IsNullOrEmpty(ff.Extension) && String.IsNullOrEmpty(ff.Name.Replace(ff.Extension, "")))
+                {
                     isValidName = false;
                     errorMessage = "EL ARCHIVO NO TIENE UN NOMBRE APROPIADO";
                 }
-                
+
             }
             catch (System.ArgumentException ex)
             {

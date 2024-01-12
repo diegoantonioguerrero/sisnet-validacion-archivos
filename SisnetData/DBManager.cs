@@ -26,6 +26,7 @@ namespace SisnetData
 
         List<NpgsqlConnection> connectionPoolLocal;
         List<NpgsqlTransaction> transactionPoolLocal;
+        private static readonly int TWENTY_MINS;
 
         public DBManager()
         {
@@ -608,9 +609,18 @@ namespace SisnetData
 
         public void UpdateValidacionarchivos(ProcessInfo processInfo)
         {
+            string extensionarchivoresultant = string.IsNullOrEmpty(processInfo.extensionarchivoresultant)
+                ? "NULL" : "'" + processInfo.extensionarchivoresultant + "'";
+
+            string extensionarchivo = string.IsNullOrEmpty(processInfo.extensionarchivo)
+                ? "NULL": "'" + processInfo.extensionarchivo + "'";
+
+            string mensajeerror = string.IsNullOrEmpty(processInfo.mensajeerror)
+                ? "NULL" : "'" + processInfo.mensajeerror + "'";
+
             NpgsqlCommand npgsqlCommand = new NpgsqlCommand()
             {
-                CommandText = string.Concat(new string[] { "update validacionarchivos set estado = '", processInfo.estado, "',nombrearchivoarchivoresultante = '", processInfo.nombrearchivoarchivoresultante, "',extensionarchivoresultant = '", processInfo.extensionarchivoresultant, "',extensionarchivo = '", processInfo.extensionarchivo, "',mensajeerror = '", processInfo.mensajeerror, "',archivoresultante = @Archivoresultante ", string.Format("WHERE fldidvalidacionarchivos = '{0}';", processInfo.fldidvalidacionarchivos) }),
+                CommandText = string.Concat(new string[] { "update validacionarchivos set estado = '", processInfo.estado, "',nombrearchivoarchivoresultante = '", processInfo.nombrearchivoarchivoresultante, "',extensionarchivoresultant = " , extensionarchivoresultant, ",extensionarchivo = ", extensionarchivo, ",mensajeerror = ", mensajeerror, ",archivoresultante = @Archivoresultante ", string.Format("WHERE fldidvalidacionarchivos = '{0}';", processInfo.fldidvalidacionarchivos) }),
                 Connection = this.connection
             };
             if (processInfo.archivoresultante == null)
@@ -998,7 +1008,7 @@ ALTER TABLE {0}_nueva RENAME TO {0};";
                         {
                             // Ajusta el tiempo de espera aquí (en segundos)
                             // 20 minutos
-                            command.CommandTimeout = 60 * 20;
+                            command.CommandTimeout = TWENTY_MINS;
                             using (NpgsqlDataReader npgsqlDataReader = command.ExecuteReader())
                             {
                                 DataTable schema = npgsqlDataReader.GetSchemaTable();
@@ -2152,6 +2162,132 @@ ALTER TABLE {0}_nueva RENAME TO {0};";
             return connection;
 
         }
+
+        public void CopyTableExport(string tableName, string sharedfolder)
+        {
+
+            Stopwatch timeMeasure = new Stopwatch();
+            //Stopwatch timeOC = new Stopwatch();
+
+            try
+            {
+                timeMeasure.Start();
+
+
+
+                int reintentos = 2;
+                while (reintentos >= 0)
+                {
+                    try
+                    {
+                        string sql = $"COPY {tableName} TO E'"
+                            + sharedfolder.Replace(@"\", @"\\")
+                            + @"\\bkpshared.sql'";
+                        using (NpgsqlCommand command = new NpgsqlCommand(sql, this.connection))
+                        {
+                            command.CommandTimeout = TWENTY_MINS;
+                            command.ExecuteNonQuery();
+                        }
+
+
+                        reintentos = -1;
+
+                    }
+                    catch (Exception ex)
+                    {
+                        if (ex is NpgsqlException npgsqlException)
+                        {
+
+                        }
+                        if (reintentos == 0)
+                        {
+                            throw ex;
+                        }
+
+                    }
+                    finally
+                    {
+                        reintentos--;
+                    }
+                }
+
+            }
+            catch (Exception ex)
+            {
+                string context = "Error CopyTable export -> " + tableName + " " + ex.Message;
+                Console.WriteLine(context);
+                throw new ApplicationException(context, ex);
+            }
+           
+            timeMeasure.Stop();
+           Console.WriteLine($"{Thread.CurrentThread.ManagedThreadId} {tableName} Tiempo export: {timeMeasure.Elapsed.TotalMilliseconds} ms");
+
+
+        }
+
+
+        public void CopyTableImport(string tableName, string sharedfolder)
+        {
+
+            Stopwatch timeMeasure = new Stopwatch();
+            //Stopwatch timeOC = new Stopwatch();
+
+            try
+            {
+                timeMeasure.Start();
+
+
+
+                int reintentos = 2;
+                while (reintentos >= 0)
+                {
+                    try
+                    {
+                        string sql = $"COPY {tableName} FROM E'"
+                            + sharedfolder.Replace(@"\", @"\\")
+                            + @"\\bkpshared.sql'";
+                        using (NpgsqlCommand command = new NpgsqlCommand(sql, this.connection))
+                        {
+                            command.CommandTimeout = TWENTY_MINS;
+                            command.ExecuteNonQuery();
+                        }
+
+
+                        reintentos = -1;
+
+                    }
+                    catch (Exception ex)
+                    {
+                        if (ex is NpgsqlException npgsqlException)
+                        {
+
+                        }
+                        if (reintentos == 0)
+                        {
+                            throw ex;
+                        }
+
+                    }
+                    finally
+                    {
+                        reintentos--;
+                    }
+                }
+
+            }
+            catch (Exception ex)
+            {
+                string context = "Error CopyTable import -> " + tableName + " " + ex.Message;
+                Console.WriteLine(context);
+                throw new ApplicationException(context, ex);
+            }
+
+            timeMeasure.Stop();
+            Console.WriteLine($"{Thread.CurrentThread.ManagedThreadId} {tableName} Tiempo import: {timeMeasure.Elapsed.TotalMilliseconds} ms");
+
+
+        }
+
 
         public void OpenRetainConnection()
         {
