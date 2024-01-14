@@ -28,6 +28,8 @@ namespace SisnetServiceConversor
         private string cmdTextWaterMark2;
         private string cmdTextWaterMark3;
         private string cmdTextWaterMark4;
+        private string extensiones_a_pdf;
+
         private string pdfexeclauncher;
         private bool log;
         public bool StopSignal;
@@ -79,6 +81,7 @@ namespace SisnetServiceConversor
             this.cmdTextWaterMark2 = ConfigurationManager.AppSettings["cmdTextWaterMark2"];
             this.cmdTextWaterMark3 = ConfigurationManager.AppSettings["cmdTextWaterMark3"];
             this.cmdTextWaterMark4 = ConfigurationManager.AppSettings["cmdTextWaterMark4"];
+            this.extensiones_a_pdf = ConfigurationManager.AppSettings["extensiones_a_pdf"];
             this.pdfexeclauncher = ConfigurationManager.AppSettings["2pdfexeclauncher"];
             this.secondsToPressContinue2PDF = int.Parse(ConfigurationManager.AppSettings["secondsToPressContinue2PDF"]);
             this.log = bool.Parse(ConfigurationManager.AppSettings["log"]);
@@ -91,20 +94,20 @@ namespace SisnetServiceConversor
 
                 DBManager dBManager = DBManager.GetDBManager();
                 /*
-                using (FileStream fileStream = new FileStream("C:\\Users\\USUARIO.DESKTOP-DIEGO\\Downloads\\Sin confirmar 46635.crdownload", FileMode.Open, FileAccess.Read))
+                using (FileStream fileStream = new FileStream("C:\\Users\\USUARIO.DESKTOP-DIEGO\\Documents\\archivosvariospruebavalidador\\Paz y Salvo.pdf", FileMode.Open, FileAccess.Read))
                 {
                     using (BinaryReader binaryReader = new BinaryReader(new BufferedStream(fileStream)))
                     {
                         
                         byte[] numArray = binaryReader.ReadBytes(Convert.ToInt32(fileStream.Length));
-                        dBManager.InsertValidacionarchivos("Sin confirmar 46635.crdownload", numArray);
+                        dBManager.InsertValidacionarchivos("Paz y Salvo.pdf", numArray);
                         numArray = null;
                         // Collect all generations of memory.
                         GC.Collect();
                     }
                 }
+                
                 */
-
                 this.globalData = dBManager.GetPendingFiles(this.tableToValidate.ToString());
                 this.ExportData();
             }
@@ -168,7 +171,7 @@ namespace SisnetServiceConversor
                                     this.CrearArchivoBase(archivoData);
                                     str = string.Concat(this.WorkingPath, "\\", fileInfo.Name);
                                     int pDF = 0;
-                                    if (!archivoData.nombrearchivoarchivo.EndsWith(".pdf") && archivoData.ProcesarExcel)
+                                    if (ProcesarConversionPDF(archivoData) && archivoData.ProcesarExcel)
                                     {
                                         pDF = this.ConvertToPDF(str, archivoData, null);
                                     }
@@ -280,7 +283,7 @@ namespace SisnetServiceConversor
                                     stopwatch.Reset();
                                     str = string.Concat(this.WorkingPath, "\\", fileInfo.Name);
                                     int pDF2 = 0;
-                                    if (!archivoData.nombrearchivoarchivo.EndsWith(".pdf") && archivoData.ProcesarExcel)
+                                    if (ProcesarConversionPDF(archivoData) && archivoData.ProcesarExcel)
                                     {
                                         pDF2 = this.ConvertToPDF(str, archivoData, null);
                                         elapsed = stopwatch.Elapsed;
@@ -336,7 +339,7 @@ namespace SisnetServiceConversor
                                     this.CrearArchivoBase(archivoData);
                                     str = string.Concat(this.WorkingPath, "\\", fileInfo.Name);
                                     int num2 = 0;
-                                    if (!archivoData.nombrearchivoarchivo.EndsWith(".pdf") && archivoData.ProcesarExcel)
+                                    if (ProcesarConversionPDF(archivoData) && archivoData.ProcesarExcel)
                                     {
                                         num2 = this.ConvertToPDF(str, archivoData, null);
                                     }
@@ -420,7 +423,7 @@ namespace SisnetServiceConversor
                                     this.CrearArchivoBase(archivoData);
                                     str = string.Concat(this.WorkingPath, "\\", fileInfo.Name);
                                     int num3 = 0;
-                                    if (!archivoData.nombrearchivoarchivo.EndsWith(".pdf") && archivoData.ProcesarExcel)
+                                    if (ProcesarConversionPDF(archivoData) && archivoData.ProcesarExcel)
                                     {
                                         num3 = this.ConvertToPDF(str, archivoData, null);
                                     }
@@ -491,6 +494,15 @@ namespace SisnetServiceConversor
                     break;
                 }
             }
+        }
+
+        private bool ProcesarConversionPDF(ProcessInfo archivoData)
+        {
+            string[] extensiones = extensiones_a_pdf.Split(",".ToCharArray());
+            bool procesar = (from string extension in extensiones
+                             where archivoData.nombrearchivoarchivo.EndsWith("." + extension.Trim())
+                             select extension).Any();
+            return procesar;
         }
 
         private bool IsValidExtension(ProcessInfo itemExport)

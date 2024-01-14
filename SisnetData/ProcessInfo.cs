@@ -34,7 +34,7 @@ namespace SisnetData
                 {
                     return true;
                 }
-                return this.procesarexcel.Equals("si");
+                return string.Compare(this.procesarexcel, "si", true) == 0;
             }
         }
         public int fldidvalidacionarchivos { get; set; }

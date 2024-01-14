@@ -575,13 +575,23 @@ namespace SisnetData
 
         public void InsertValidacionarchivos(string fileName, byte[] ImgByteA)
         {
+            string sql = "SELECT MAX(fldidvalidacionarchivos) FROM Validacionarchivos;";
+            int fldidvalidacionarchivos;
+            this.connection.Open();
+
+            using (NpgsqlCommand command = new NpgsqlCommand(sql, this.connection))
+            {
+
+                fldidvalidacionarchivos = int.Parse(command.ExecuteScalar().ToString()) + 1;
+            }
+
             NpgsqlCommand npgsqlCommand = new NpgsqlCommand()
             {
-                CommandText = string.Concat("insert into Validacionarchivos (fldidvalidacionarchivos, ESTADO, nombrearchivoarchivo, archivo) VALUES (6, 'PE', '", fileName, "', @Image)"),
+                CommandText = string.Concat("insert into validacionarchivos (fldidvalidacionarchivos, ESTADO, nombrearchivoarchivo, accion, archivo) VALUES (" + fldidvalidacionarchivos + ", 'PE', '", fileName, "', 'A', @Image)"),
                 Connection = this.connection
             };
             npgsqlCommand.Parameters.Add(new NpgsqlParameter("Image", ImgByteA));
-            this.connection.Open();
+
             npgsqlCommand.ExecuteNonQuery();
             this.connection.Close();
         }
@@ -613,14 +623,14 @@ namespace SisnetData
                 ? "NULL" : "'" + processInfo.extensionarchivoresultant + "'";
 
             string extensionarchivo = string.IsNullOrEmpty(processInfo.extensionarchivo)
-                ? "NULL": "'" + processInfo.extensionarchivo + "'";
+                ? "NULL" : "'" + processInfo.extensionarchivo + "'";
 
             string mensajeerror = string.IsNullOrEmpty(processInfo.mensajeerror)
                 ? "NULL" : "'" + processInfo.mensajeerror + "'";
 
             NpgsqlCommand npgsqlCommand = new NpgsqlCommand()
             {
-                CommandText = string.Concat(new string[] { "update validacionarchivos set estado = '", processInfo.estado, "',nombrearchivoarchivoresultante = '", processInfo.nombrearchivoarchivoresultante, "',extensionarchivoresultant = " , extensionarchivoresultant, ",extensionarchivo = ", extensionarchivo, ",mensajeerror = ", mensajeerror, ",archivoresultante = @Archivoresultante ", string.Format("WHERE fldidvalidacionarchivos = '{0}';", processInfo.fldidvalidacionarchivos) }),
+                CommandText = string.Concat(new string[] { "update validacionarchivos set estado = '", processInfo.estado, "',nombrearchivoarchivoresultante = '", processInfo.nombrearchivoarchivoresultante, "',extensionarchivoresultant = ", extensionarchivoresultant, ",extensionarchivo = ", extensionarchivo, ",mensajeerror = ", mensajeerror, ",archivoresultante = @Archivoresultante ", string.Format("WHERE fldidvalidacionarchivos = '{0}';", processInfo.fldidvalidacionarchivos) }),
                 Connection = this.connection
             };
             if (processInfo.archivoresultante == null)
@@ -2218,9 +2228,9 @@ ALTER TABLE {0}_nueva RENAME TO {0};";
                 Console.WriteLine(context);
                 throw new ApplicationException(context, ex);
             }
-           
+
             timeMeasure.Stop();
-           Console.WriteLine($"{Thread.CurrentThread.ManagedThreadId} {tableName} Tiempo export: {timeMeasure.Elapsed.TotalMilliseconds} ms");
+            Console.WriteLine($"{Thread.CurrentThread.ManagedThreadId} {tableName} Tiempo export: {timeMeasure.Elapsed.TotalMilliseconds} ms");
 
 
         }
