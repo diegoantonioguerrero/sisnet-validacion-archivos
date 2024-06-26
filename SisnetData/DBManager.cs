@@ -2178,7 +2178,9 @@ ALTER TABLE {0}_nueva RENAME TO {0};";
 
             Stopwatch timeMeasure = new Stopwatch();
             //Stopwatch timeOC = new Stopwatch();
-
+            string sql = $"COPY {tableName} TO E'"
+                           + sharedfolder.Replace(@"\", @"\\")
+                           + @"\\bkpshared.sql'";
             try
             {
                 timeMeasure.Start();
@@ -2190,9 +2192,7 @@ ALTER TABLE {0}_nueva RENAME TO {0};";
                 {
                     try
                     {
-                        string sql = $"COPY {tableName} TO E'"
-                            + sharedfolder.Replace(@"\", @"\\")
-                            + @"\\bkpshared.sql'";
+                       
                         using (NpgsqlCommand command = new NpgsqlCommand(sql, this.connection))
                         {
                             command.CommandTimeout = TWENTY_MINS;
@@ -2224,7 +2224,8 @@ ALTER TABLE {0}_nueva RENAME TO {0};";
             }
             catch (Exception ex)
             {
-                string context = "Error CopyTable export -> " + tableName + " " + ex.Message;
+                string context = "Error CopyTable export -> [" + tableName + "] \r\n " + sql 
+                    + "\r\n" + ex.Message;
                 Console.WriteLine(context);
                 throw new ApplicationException(context, ex);
             }

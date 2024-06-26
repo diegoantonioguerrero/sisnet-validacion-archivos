@@ -7,10 +7,12 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Diagnostics;
+using System.DirectoryServices.ActiveDirectory;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -21,6 +23,7 @@ using System.Windows.Forms;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.Button;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.ProgressBar;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
 
 namespace SisnetDBComparer
@@ -67,16 +70,74 @@ namespace SisnetDBComparer
             ht.Add(Utils.Status.Verde.ToString(), "Iguales");
             ht.Add(Utils.Status.Amarillo.ToString(), "Diferentes");
 #if !DEBUG
-            this.txtHost1.Text = "192.168.0.3";
+            this.txtHost1.Text = "192.168.0.21";
             this.txtPort2.Text = "5432";
+            this.txtRutaDirectorioOrigen.Text = @"\\192.168.0.3\CompartidaMigracion";
+            this.txtRutaDirectorioDest.Text = @"\\SERVIDOR2024\compartida";
+            txtUsuario.Text = "USER";
 #else
-            this.txtRutaDirectorio.Text = @"\\DESKTOP-DIEGO\bkpsA";
+            this.txtRutaDirectorioOrigen.Text = @"\\DESKTOP-DIEGO\bkpsA";
+            this.txtRutaDirectorioDest.Text = @"\\DESKTOP-DIEGO\bkpsA";
+
 #endif
 
         }
 
         private void btnConectar_Click(object sender, EventArgs e)
         {
+            /*
+            if (this.txtRutaDirectorioOrigen.Text.Trim() == string.Empty)
+            {
+                MessageBox.Show("Seleccione el directorio compartido de intercambio origen", "Sincronización", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            */
+            if (this.txtRutaDirectorioDest.Text.Trim() == string.Empty)
+            {
+                MessageBox.Show("Seleccione el directorio compartido de intercambio destino", "Sincronización", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            /*
+                        try
+                        {
+
+                            // Crea las credenciales de red
+                            NetworkCredential credentials = new NetworkCredential(txtUsuario.Text,
+                                txtContrasenia.Text, txtDominio.Text);
+
+                            // Crea un objeto CredentialCache y agrega las credenciales para la carpeta compartida
+                            CredentialCache credentialCache = new CredentialCache();
+                            credentialCache.Add(new Uri(txtRutaDirectorioOrigen.Text), "Basic", credentials);
+
+
+                            // Intenta acceder a la carpeta compartida utilizando las credenciales proporcionadas
+                            var directory = new DirectoryInfo(txtRutaDirectorioOrigen.Text);
+
+                            foreach (var file in directory.GetFiles())
+                            {
+                                Console.WriteLine(file.Name);
+                            }
+
+                            directory = null;
+
+                            string pathFile = this.txtRutaDirectorioDest.Text.Trim() + "\\writer.txt";
+                            if (File.Exists(pathFile))
+                            {
+                                File.Delete(pathFile);
+                            }
+                            // Escribe el contenido en el archivo y cierra el archivo después de escribir
+                            File.WriteAllText(pathFile, "test");
+                            File.Delete(pathFile);
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show("Error en directorio compartido de intercambio destino\r\n" + ex.Message, "Sincronización", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            return;
+                        }
+
+                       */
+
             this.btnConectar.Enabled = false;
             DBManager dBManager = DBManager.GetDBManager();
             try
@@ -372,7 +433,7 @@ namespace SisnetDBComparer
             }
             catch (Exception ex)
             {
-                String message = ex.Message + "\r\n";
+                string message = "FillCounters " + ex.Message + "\r\n";
                 //message += "Context {\r\n\tConsecutivo:" + dataFile.Consecutivo;
                 //message += "\r\n\tFileName:" + dataFile.ArchivoName;
                 //message += "\r\n\tFile:" + archivoExportar + "\r\n}";
@@ -1037,79 +1098,121 @@ namespace SisnetDBComparer
 
         private void CreateStruct()
         {
-            List<ItemDTO> tablesToSync = (from item in this.totalData
-                                          where
-                                          !string.IsNullOrEmpty(item.Table1) &&
-                                          string.IsNullOrEmpty(item.Table2)
-                                          select item).ToList();
-
-            DataTable foreignKeys = this.dbManager1.GetForeginKeys(null);
-            // si la tabla no existe se crea en el otro servidor.
-
-            int num = 0;
-            foreach (ItemDTO rowToCreate in tablesToSync)
+            ItemDTO rowToCreateContext = null;
+            string dt = "";
+            try
             {
-                string createTableSentence;
-                int count = num * 100 / tablesToSync.Count;
+                List<ItemDTO> tablesToSync = (from item in this.totalData
+                                              where
+                                              !string.IsNullOrEmpty(item.Table1) &&
+                                              string.IsNullOrEmpty(item.Table2)
+                                              select item).ToList();
 
-                this.bgwSync.ReportProgress(count, new SyncResult
+                DataTable foreignKeys = this.dbManager1.GetForeginKeys(null);
+                // si la tabla no existe se crea en el otro servidor.
+
+                int num = 0;
+                foreach (ItemDTO rowToCreate in tablesToSync)
                 {
-                    StatusSync = StatusSync.SyncCreatingTable,
-                    Item = rowToCreate
-                });
+                    rowToCreateContext = rowToCreate;
+                    string createTableSentence;
+                    int count = num * 100 / tablesToSync.Count;
 
-                DataRow definition = (from DataRow row in foreignKeys.Rows
-                                      where row["table_origin"].ToString() ==
-                                      rowToCreate.Table1
-                                      select row
-                                       ).SingleOrDefault();
-                if (definition != null)
-                {
-                    DataTable fieldsOrigin = this.dbManager1.GetFieldsAdvance(rowToCreate.Table1);
-                    DataTable fieldsDestination = this.dbManager1.GetFieldsAdvance(definition["table_destination"].ToString());
-
-                    DataRow fieldOrigin = (from DataRow row in fieldsOrigin.Rows
-                                           where definition["column_origin"].ToString() ==
-                                           row["column_name"].ToString()
-                                           select row
-                                          ).Single();
-
-                    DataRow fieldDestination = (from DataRow row in fieldsDestination.Rows
-                                                where definition["column_destination"].ToString() ==
-                                                row["column_name"].ToString()
-                                                select row
-                                          ).Single();
-
-                    if (fieldOrigin["data_type"].ToString() == fieldDestination["data_type"].ToString())
+                    this.bgwSync.ReportProgress(count, new SyncResult
                     {
-                        createTableSentence = this.dbManager1.GetCreateSchemaTable(rowToCreate.Table1);
+                        StatusSync = StatusSync.SyncCreatingTable,
+                        Item = rowToCreate
+                    });
+
+                    dt += "-1-";
+                    List<DataRow> definition = (from DataRow row in foreignKeys.Rows
+                                                where row["table_origin"].ToString() ==
+                                                rowToCreate.Table1
+                                                select row
+                                           ).ToList();
+                    dt += "-2-";
+                    if (definition != null && definition.Any())
+                    {
+                        DataTable fieldsOrigin = this.dbManager1.GetFieldsAdvance(rowToCreate.Table1);
+                        List<DataRow> fieldToReplaceByDistinctType = new List<DataRow>();
+
+                        foreach (var foreignKey in definition)
+                        {
+
+                            DataTable fieldsDestination = this.dbManager1.GetFieldsAdvance(foreignKey["table_destination"].ToString());
+                            dt += "-3-";
+
+                            /*List<string> lsDefinitionOrigin = (from DataRow rowDefinition
+                                                         in definition
+                                                               select rowDefinition["column_origin"].ToString()).ToList();
+
+                            List<string> lsDefinitionDestiny = (from DataRow rowDefinition
+                                                         in definition
+                                                                select rowDefinition["column_destination"].ToString()).ToList();
+                            */
+                            DataRow fieldOrigin = (from DataRow row in fieldsOrigin.Rows
+                                                         where foreignKey["column_origin"].ToString() == row["column_name"].ToString()
+                                                         select row
+                                                  ).Single();
+                            dt += "-4-";
+                            DataRow fieldDestination = (from DataRow row in fieldsDestination.Rows
+                                                              where foreignKey["column_destination"].ToString() ==
+                                                              row["column_name"].ToString()
+                                                              select row
+                                                  ).Single();
+                            dt += "-5-";
+                            if (fieldOrigin["data_type"].ToString() == fieldDestination["data_type"].ToString())
+                            {
+
+                            }
+                            else
+                            {
+                                if (fieldDestination["column_name"].ToString() != fieldOrigin["column_name"].ToString())
+                                {
+                                    fieldDestination["column_name"] = fieldOrigin["column_name"];
+                                }
+                                fieldToReplaceByDistinctType.Add(fieldDestination);
+                            }
+                        }
+
+                        if (!fieldToReplaceByDistinctType.Any()) {
+                            createTableSentence = this.dbManager1.GetCreateSchemaTable(rowToCreate.Table1);
+
+                        }
+                        else
+                        {
+                            if (fieldToReplaceByDistinctType.Count > 1)
+                            {
+                                throw new ApplicationException("Caso especial dobles foraneas");
+                            }
+                            createTableSentence = this.dbManager1.GetCreateSchemaTable(rowToCreate.Table1, fieldToReplaceByDistinctType[0]);
+                        }
                     }
                     else
                     {
-                        if (fieldDestination["column_name"].ToString() != fieldOrigin["column_name"].ToString())
-                        {
-                            fieldDestination["column_name"] = fieldOrigin["column_name"];
-                        }
-                        createTableSentence = this.dbManager1.GetCreateSchemaTable(rowToCreate.Table1, fieldDestination);
+                        createTableSentence = this.dbManager1.GetCreateSchemaTable(rowToCreate.Table1);
                     }
+                    this.dbManager2.ExecuteSentence(createTableSentence);
+                    rowToCreate.Table2 = rowToCreate.Table1;
+
+                    //Thread.Sleep(4000);
+                    this.bgwSync.ReportProgress(count, new SyncResult
+                    {
+                        StatusSync = StatusSync.SyncCreatedTable,
+                        Item = rowToCreate
+                    });
+                    //Thread.Sleep(4000);
+
+                    num++;
+
                 }
-                else
-                {
-                    createTableSentence = this.dbManager1.GetCreateSchemaTable(rowToCreate.Table1);
-                }
-                this.dbManager2.ExecuteSentence(createTableSentence);
-                rowToCreate.Table2 = rowToCreate.Table1;
-
-                //Thread.Sleep(4000);
-                this.bgwSync.ReportProgress(count, new SyncResult
-                {
-                    StatusSync = StatusSync.SyncCreatedTable,
-                    Item = rowToCreate
-                });
-                //Thread.Sleep(4000);
-
-                num++;
-
+            }
+            catch (Exception ex)
+            {
+                string message = "CreateStruct ";
+                message += rowToCreateContext != null ? "Table={" + rowToCreateContext.Table1 + "} " : " NA ";
+                message += dt + " " + ex.Message + "\r\n" + ex.StackTrace;
+                throw new ApplicationException(message, ex);
             }
         }
 
@@ -1910,13 +2013,36 @@ namespace SisnetDBComparer
                         Item = tableToSync
                     });
 
-                    this.dbManager1.CopyTableExport(tableToSync.Table1, this.txtRutaDirectorio.Text);
+                    this.dbManager1.CopyTableExport(tableToSync.Table1, this.txtRutaDirectorioDest.Text);
+                    /*
+                    string fileCopy = "\\bkpshared.sql";
+                    string origin = this.txtRutaDirectorioOrigen.Text + fileCopy;
+                    string destiny = this.txtRutaDirectorioDest.Text + fileCopy;
+                    try
+                    {
+                        // Crea las credenciales de red
+                        NetworkCredential credentials = new NetworkCredential(txtUsuario.Text,
+                            txtContrasenia.Text, txtDominio.Text);
+
+                        // Crea un objeto CredentialCache y agrega las credenciales para la carpeta compartida
+                        CredentialCache credentialCache = new CredentialCache();
+                        credentialCache.Add(new Uri(txtRutaDirectorioOrigen.Text), "Basic", credentials);
+
+
+                        File.Copy(origin, destiny, true);
+                    }
+                    catch (Exception exFile)
+                    {
+                        throw new ApplicationException("Error copy from " + origin + " to " + destiny + "\r\n" + exFile.Message);
+                    }
+                    */
+
                     if (this.bgwSync.CancellationPending)
                     {
                         e.Cancel = true;
                         return false;
                     }
-                    this.dbManager2.CopyTableImport(tableToSync.Table1, this.txtRutaDirectorio.Text);
+                    this.dbManager2.CopyTableImport(tableToSync.Table1, this.txtRutaDirectorioDest.Text);
                     return true;
                 }
 
@@ -2270,12 +2396,6 @@ namespace SisnetDBComparer
                 {
                     this.bgwSync.CancelAsync();
                 }
-                return;
-            }
-
-            if (this.txtRutaDirectorio.Text.Trim() == string.Empty)
-            {
-                MessageBox.Show("Seleccione el directorio compartido de intercambio", "Sincronización", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -2933,8 +3053,12 @@ namespace SisnetDBComparer
                     // Obtener la ruta del directorio seleccionado
                     string directorioSeleccionado = folderBrowserDialog.SelectedPath;
 
+
                     // Puedes hacer algo con la ruta seleccionada, por ejemplo, mostrarla en un TextBox
-                    txtRutaDirectorio.Text = directorioSeleccionado;
+                    if (this.btnDirectoryDest == sender)
+                        txtRutaDirectorioDest.Text = directorioSeleccionado;
+                    else
+                        txtRutaDirectorioOrigen.Text = directorioSeleccionado;
                 }
             }
         }

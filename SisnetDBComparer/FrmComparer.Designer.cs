@@ -94,7 +94,6 @@
             this.tabPage2 = new System.Windows.Forms.TabPage();
             this.grvStruct1 = new System.Windows.Forms.DataGridView();
             this.grvStruct2 = new System.Windows.Forms.DataGridView();
-            this.label13 = new System.Windows.Forms.Label();
             this.lblElapsedSync = new System.Windows.Forms.Label();
             this.lblStatusDetails = new System.Windows.Forms.Label();
             this.pgbDetails = new System.Windows.Forms.ProgressBar();
@@ -123,8 +122,18 @@
             this.bgwDetails = new System.ComponentModel.BackgroundWorker();
             this.bgwSync = new System.ComponentModel.BackgroundWorker();
             this.toolTipSincronizer = new System.Windows.Forms.ToolTip(this.components);
-            this.btnDirectory = new System.Windows.Forms.Button();
-            this.txtRutaDirectorio = new System.Windows.Forms.TextBox();
+            this.txtRutaDirectorioDest = new System.Windows.Forms.TextBox();
+            this.btnDirectoryDest = new System.Windows.Forms.Button();
+            this.txtRutaDirectorioOrigen = new System.Windows.Forms.TextBox();
+            this.btnDirectoryOrig = new System.Windows.Forms.Button();
+            this.lblCarpetaOrigen = new System.Windows.Forms.Label();
+            this.lblCarpetaDestino = new System.Windows.Forms.Label();
+            this.txtUsuario = new System.Windows.Forms.TextBox();
+            this.txtContrasenia = new System.Windows.Forms.TextBox();
+            this.txtDominio = new System.Windows.Forms.TextBox();
+            this.label13 = new System.Windows.Forms.Label();
+            this.label14 = new System.Windows.Forms.Label();
+            this.label15 = new System.Windows.Forms.Label();
             this.groupBox1.SuspendLayout();
             this.groupBox2.SuspendLayout();
             this.tbComparador.SuspendLayout();
@@ -150,6 +159,15 @@
             // 
             // groupBox1
             // 
+            this.groupBox1.Controls.Add(this.label15);
+            this.groupBox1.Controls.Add(this.label14);
+            this.groupBox1.Controls.Add(this.label13);
+            this.groupBox1.Controls.Add(this.txtDominio);
+            this.groupBox1.Controls.Add(this.txtContrasenia);
+            this.groupBox1.Controls.Add(this.txtUsuario);
+            this.groupBox1.Controls.Add(this.lblCarpetaOrigen);
+            this.groupBox1.Controls.Add(this.txtRutaDirectorioOrigen);
+            this.groupBox1.Controls.Add(this.btnDirectoryOrig);
             this.groupBox1.Controls.Add(this.lblStatus1);
             this.groupBox1.Controls.Add(this.lblEstado1);
             this.groupBox1.Controls.Add(this.label4);
@@ -162,7 +180,7 @@
             this.groupBox1.Controls.Add(this.txtHost1);
             this.groupBox1.Location = new System.Drawing.Point(199, 6);
             this.groupBox1.Name = "groupBox1";
-            this.groupBox1.Size = new System.Drawing.Size(220, 205);
+            this.groupBox1.Size = new System.Drawing.Size(220, 316);
             this.groupBox1.TabIndex = 0;
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "Conexion 1";
@@ -256,6 +274,9 @@
             // 
             // groupBox2
             // 
+            this.groupBox2.Controls.Add(this.lblCarpetaDestino);
+            this.groupBox2.Controls.Add(this.txtRutaDirectorioDest);
+            this.groupBox2.Controls.Add(this.btnDirectoryDest);
             this.groupBox2.Controls.Add(this.lblStatus2);
             this.groupBox2.Controls.Add(this.label5);
             this.groupBox2.Controls.Add(this.label10);
@@ -268,7 +289,7 @@
             this.groupBox2.Controls.Add(this.txtHost2);
             this.groupBox2.Location = new System.Drawing.Point(429, 6);
             this.groupBox2.Name = "groupBox2";
-            this.groupBox2.Size = new System.Drawing.Size(220, 205);
+            this.groupBox2.Size = new System.Drawing.Size(220, 269);
             this.groupBox2.TabIndex = 8;
             this.groupBox2.TabStop = false;
             this.groupBox2.Text = "Conexion 2";
@@ -362,7 +383,7 @@
             // 
             // btnConectar
             // 
-            this.btnConectar.Location = new System.Drawing.Point(574, 226);
+            this.btnConectar.Location = new System.Drawing.Point(574, 281);
             this.btnConectar.Name = "btnConectar";
             this.btnConectar.Size = new System.Drawing.Size(75, 23);
             this.btnConectar.TabIndex = 9;
@@ -402,7 +423,7 @@
             // 
             // button1
             // 
-            this.button1.Location = new System.Drawing.Point(242, 261);
+            this.button1.Location = new System.Drawing.Point(17, 324);
             this.button1.Name = "button1";
             this.button1.Size = new System.Drawing.Size(176, 23);
             this.button1.TabIndex = 10;
@@ -721,10 +742,7 @@
             // 
             // tabPageDetail
             // 
-            this.tabPageDetail.Controls.Add(this.txtRutaDirectorio);
-            this.tabPageDetail.Controls.Add(this.btnDirectory);
             this.tabPageDetail.Controls.Add(this.tabControl1);
-            this.tabPageDetail.Controls.Add(this.label13);
             this.tabPageDetail.Controls.Add(this.lblElapsedSync);
             this.tabPageDetail.Controls.Add(this.lblStatusDetails);
             this.tabPageDetail.Controls.Add(this.pgbDetails);
@@ -811,19 +829,6 @@
             this.grvStruct2.Name = "grvStruct2";
             this.grvStruct2.Size = new System.Drawing.Size(293, 150);
             this.grvStruct2.TabIndex = 8;
-            // 
-            // label13
-            // 
-            this.label13.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.label13.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label13.ForeColor = System.Drawing.Color.Red;
-            this.label13.Location = new System.Drawing.Point(626, 339);
-            this.label13.Name = "label13";
-            this.label13.Size = new System.Drawing.Size(146, 157);
-            this.label13.TabIndex = 19;
-            this.label13.Text = "Importante! Al sincronizar se leen los datos de la BD Origen y se escriben en la " +
-    "Destino. El origen NO se modifica.";
             // 
             // lblElapsedSync
             // 
@@ -1075,22 +1080,115 @@
             this.bgwSync.ProgressChanged += new System.ComponentModel.ProgressChangedEventHandler(this.bgwSync_ProgressChanged);
             this.bgwSync.RunWorkerCompleted += new System.ComponentModel.RunWorkerCompletedEventHandler(this.bgwSync_RunWorkerCompleted);
             // 
-            // btnDirectory
+            // txtRutaDirectorioDest
             // 
-            this.btnDirectory.Location = new System.Drawing.Point(732, 521);
-            this.btnDirectory.Name = "btnDirectory";
-            this.btnDirectory.Size = new System.Drawing.Size(75, 23);
-            this.btnDirectory.TabIndex = 21;
-            this.btnDirectory.Text = "Directorio";
-            this.btnDirectory.UseVisualStyleBackColor = true;
-            this.btnDirectory.Click += new System.EventHandler(this.btnDirectory_Click);
+            this.txtRutaDirectorioDest.Location = new System.Drawing.Point(20, 218);
+            this.txtRutaDirectorioDest.Name = "txtRutaDirectorioDest";
+            this.txtRutaDirectorioDest.Size = new System.Drawing.Size(100, 20);
+            this.txtRutaDirectorioDest.TabIndex = 24;
             // 
-            // txtRutaDirectorio
+            // btnDirectoryDest
             // 
-            this.txtRutaDirectorio.Location = new System.Drawing.Point(626, 524);
-            this.txtRutaDirectorio.Name = "txtRutaDirectorio";
-            this.txtRutaDirectorio.Size = new System.Drawing.Size(100, 20);
-            this.txtRutaDirectorio.TabIndex = 22;
+            this.btnDirectoryDest.Location = new System.Drawing.Point(129, 218);
+            this.btnDirectoryDest.Name = "btnDirectoryDest";
+            this.btnDirectoryDest.Size = new System.Drawing.Size(75, 23);
+            this.btnDirectoryDest.TabIndex = 23;
+            this.btnDirectoryDest.Text = "Directorio";
+            this.btnDirectoryDest.UseVisualStyleBackColor = true;
+            this.btnDirectoryDest.Click += new System.EventHandler(this.btnDirectory_Click);
+            // 
+            // txtRutaDirectorioOrigen
+            // 
+            this.txtRutaDirectorioOrigen.Location = new System.Drawing.Point(14, 271);
+            this.txtRutaDirectorioOrigen.Name = "txtRutaDirectorioOrigen";
+            this.txtRutaDirectorioOrigen.Size = new System.Drawing.Size(100, 20);
+            this.txtRutaDirectorioOrigen.TabIndex = 26;
+            this.txtRutaDirectorioOrigen.Visible = false;
+            // 
+            // btnDirectoryOrig
+            // 
+            this.btnDirectoryOrig.Location = new System.Drawing.Point(123, 271);
+            this.btnDirectoryOrig.Name = "btnDirectoryOrig";
+            this.btnDirectoryOrig.Size = new System.Drawing.Size(75, 23);
+            this.btnDirectoryOrig.TabIndex = 25;
+            this.btnDirectoryOrig.Text = "Directorio";
+            this.btnDirectoryOrig.UseVisualStyleBackColor = true;
+            this.btnDirectoryOrig.Visible = false;
+            this.btnDirectoryOrig.Click += new System.EventHandler(this.btnDirectory_Click);
+            // 
+            // lblCarpetaOrigen
+            // 
+            this.lblCarpetaOrigen.AutoSize = true;
+            this.lblCarpetaOrigen.Location = new System.Drawing.Point(11, 255);
+            this.lblCarpetaOrigen.Name = "lblCarpetaOrigen";
+            this.lblCarpetaOrigen.Size = new System.Drawing.Size(76, 13);
+            this.lblCarpetaOrigen.TabIndex = 27;
+            this.lblCarpetaOrigen.Text = "Carpeta origen";
+            this.lblCarpetaOrigen.Visible = false;
+            // 
+            // lblCarpetaDestino
+            // 
+            this.lblCarpetaDestino.AutoSize = true;
+            this.lblCarpetaDestino.Location = new System.Drawing.Point(17, 202);
+            this.lblCarpetaDestino.Name = "lblCarpetaDestino";
+            this.lblCarpetaDestino.Size = new System.Drawing.Size(81, 13);
+            this.lblCarpetaDestino.TabIndex = 28;
+            this.lblCarpetaDestino.Text = "Carpeta destino";
+            // 
+            // txtUsuario
+            // 
+            this.txtUsuario.Location = new System.Drawing.Point(98, 155);
+            this.txtUsuario.Name = "txtUsuario";
+            this.txtUsuario.Size = new System.Drawing.Size(100, 20);
+            this.txtUsuario.TabIndex = 28;
+            this.txtUsuario.Visible = false;
+            // 
+            // txtContrasenia
+            // 
+            this.txtContrasenia.Location = new System.Drawing.Point(98, 181);
+            this.txtContrasenia.Name = "txtContrasenia";
+            this.txtContrasenia.Size = new System.Drawing.Size(100, 20);
+            this.txtContrasenia.TabIndex = 29;
+            this.txtContrasenia.UseSystemPasswordChar = true;
+            this.txtContrasenia.Visible = false;
+            // 
+            // txtDominio
+            // 
+            this.txtDominio.Location = new System.Drawing.Point(98, 207);
+            this.txtDominio.Name = "txtDominio";
+            this.txtDominio.Size = new System.Drawing.Size(100, 20);
+            this.txtDominio.TabIndex = 30;
+            this.txtDominio.Visible = false;
+            // 
+            // label13
+            // 
+            this.label13.AutoSize = true;
+            this.label13.Location = new System.Drawing.Point(44, 155);
+            this.label13.Name = "label13";
+            this.label13.Size = new System.Drawing.Size(46, 13);
+            this.label13.TabIndex = 31;
+            this.label13.Text = "Usuario:";
+            this.label13.Visible = false;
+            // 
+            // label14
+            // 
+            this.label14.AutoSize = true;
+            this.label14.Location = new System.Drawing.Point(28, 181);
+            this.label14.Name = "label14";
+            this.label14.Size = new System.Drawing.Size(64, 13);
+            this.label14.TabIndex = 32;
+            this.label14.Text = "Contrasena:";
+            this.label14.Visible = false;
+            // 
+            // label15
+            // 
+            this.label15.AutoSize = true;
+            this.label15.Location = new System.Drawing.Point(49, 207);
+            this.label15.Name = "label15";
+            this.label15.Size = new System.Drawing.Size(48, 13);
+            this.label15.TabIndex = 33;
+            this.label15.Text = "Dominio:";
+            this.label15.Visible = false;
             // 
             // FrmComparer
             // 
@@ -1221,15 +1319,24 @@
         private System.Windows.Forms.Label label9;
         private System.Windows.Forms.ToolTip toolTipSincronizer;
         private System.Windows.Forms.Label label12;
-        private System.Windows.Forms.Label label13;
         private System.Windows.Forms.Button button1;
         private System.Windows.Forms.TabControl tabControl1;
         private System.Windows.Forms.TabPage tabPage1;
         private System.Windows.Forms.TabPage tabPage2;
         private System.Windows.Forms.DataGridView grvStruct1;
         private System.Windows.Forms.DataGridView grvStruct2;
-        private System.Windows.Forms.Button btnDirectory;
-        private System.Windows.Forms.TextBox txtRutaDirectorio;
+        private System.Windows.Forms.TextBox txtRutaDirectorioDest;
+        private System.Windows.Forms.Button btnDirectoryDest;
+        private System.Windows.Forms.TextBox txtRutaDirectorioOrigen;
+        private System.Windows.Forms.Button btnDirectoryOrig;
+        private System.Windows.Forms.Label lblCarpetaOrigen;
+        private System.Windows.Forms.Label lblCarpetaDestino;
+        private System.Windows.Forms.Label label15;
+        private System.Windows.Forms.Label label14;
+        private System.Windows.Forms.Label label13;
+        private System.Windows.Forms.TextBox txtDominio;
+        private System.Windows.Forms.TextBox txtContrasenia;
+        private System.Windows.Forms.TextBox txtUsuario;
     }
 }
 
