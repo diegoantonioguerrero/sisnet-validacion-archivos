@@ -1,4 +1,5 @@
 ﻿using SisnetData;
+using SisnetValidacionArchivos;
 using System;
 using System.Collections.Generic;
 using System.Configuration;
@@ -47,33 +48,11 @@ namespace SisnetServiceConversor
         public FileConversor(IntPtr ServiceHandle)
         {
             this.ServiceHandle = ServiceHandle;
-            DBManager dBManager = DBManager.GetDBManager();
-            try
-            {
-                string appSetting1 = ConfigurationManager.AppSettings["server"];
-                string appSetting2 = ConfigurationManager.AppSettings["database"];
-                string appSetting3 = ConfigurationManager.AppSettings["user"];
-                string appSetting4 = ConfigurationManager.AppSettings["password"];
-                dBManager.SetDBManager(appSetting1, "5432", appSetting2, appSetting3, appSetting4);
-            }
-            catch (Exception ex)
-            {
-#if DEBUG
-                if (ex.Message.Contains("Failed"))
-                {
-                    testLocal = true;
-                }
-#else
-                this.WriteLog(ex.Message);
-                throw ex;
-#endif
-            }
-            this.WorkingPath = this.GetCurrentDirectory() + "temp";
-            this.tableToValidate = ConfigurationManager.AppSettings["tableToValidate"];
+            this.WorkingPath = GetCurrentDirectory() + "temp";
             this.PdfExe = ConfigurationManager.AppSettings["2pdfexe"];
             this.PdfCompresorExe = ConfigurationManager.AppSettings["pdfcompresorexe"];
             this.imgLogo = ConfigurationManager.AppSettings["logoWaterMark"];
-            this.imgLogo = this.GetCurrentDirectory() + this.imgLogo;
+            this.imgLogo = GetCurrentDirectory() + this.imgLogo;
             this.cmdConvertPDF = ConfigurationManager.AppSettings["cmdConvertPDF"];
             this.cmdCompresorPDF = ConfigurationManager.AppSettings["cmdCompresorPDF"];
             this.cmdWaterMark = ConfigurationManager.AppSettings["cmdWaterMark"];
@@ -85,6 +64,32 @@ namespace SisnetServiceConversor
             this.pdfexeclauncher = ConfigurationManager.AppSettings["2pdfexeclauncher"];
             this.secondsToPressContinue2PDF = int.Parse(ConfigurationManager.AppSettings["secondsToPressContinue2PDF"]);
             this.log = bool.Parse(ConfigurationManager.AppSettings["log"]);
+        }
+
+        public void SetDbManager(DatabaseElement databaseSetting)
+        {
+            DBManager dBManager = DBManager.GetDBManager();
+            try
+            {
+                string appSetting1 = databaseSetting.Server;
+                string appSetting2 = databaseSetting.Database;
+                string appSetting3 = databaseSetting.User;
+                string appSetting4 = databaseSetting.Password;
+                dBManager.SetDBManager(appSetting1, databaseSetting.Port, appSetting2, appSetting3, appSetting4);
+                this.tableToValidate = databaseSetting.TableToValidate;
+            }
+            catch (Exception ex)
+            {
+#if DEBUG
+                if (ex.Message.Contains("Failed"))
+                {
+                    testLocal = true;
+                }
+#else
+                this.WriteLog(ex.Message, ex);
+                throw ex;
+#endif
+            }
         }
 
         public void ChangeData()
@@ -157,7 +162,7 @@ namespace SisnetServiceConversor
                                 select toProcess).Single<ProcessInfo>();
                             archivoData.ArchivoData = dataFileToConvert.ArchivoData;
                             int num1 = archivoData.fldidvalidacionarchivos;
-                            this.WriteLog(string.Concat("Processing ", num1.ToString(), " action:", archivoData.accion), null);
+                            this.WriteLog(string.Concat("Processing ", num1.ToString(), " action:", archivoData.accion));
                             if (!this.IsValidExtension(archivoData))
                             {
                                 continue;
@@ -556,11 +561,22 @@ namespace SisnetServiceConversor
 
         private void WriteLog(string text, Exception ex = null)
         {
-            if (!this.log || !text.EndsWith("ms"))
+            if (ex == null)
             {
-                return;
+                if (!this.log || !text.EndsWith("ms"))
+                {
+                    return;
+                }
             }
-            string currentDirectory = this.GetCurrentDirectory();
+            else
+            {
+                if (!this.log)
+                {
+                    return;
+                }
+            }
+
+            string currentDirectory = GetCurrentDirectory();
             currentDirectory = string.Concat(currentDirectory, "log.txt");
             DateTime now = DateTime.Now;
             File.AppendAllText(currentDirectory, string.Concat(now.ToString("yyyy-MM-dd HH:mm:ss"), " ", text, "\r\n"));
@@ -571,7 +587,7 @@ namespace SisnetServiceConversor
             }
         }
 
-        private string GetCurrentDirectory()
+        public static string GetCurrentDirectory()
         {
             return AppDomain.CurrentDomain.BaseDirectory;
         }

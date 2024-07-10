@@ -43,6 +43,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="DatabaseSettings.cs" />
     <Compile Include="FileConversor.cs" />
     <Compile Include="FileConversorService.cs">
       <SubType>Component</SubType>

@@ -57,4 +57,7 @@
     <Folder Include="Exceptions\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="powershell -ExecutionPolicy Bypass -File $(ProjectDir)clean_up.ps1" />
+  </Target>
 </Project>

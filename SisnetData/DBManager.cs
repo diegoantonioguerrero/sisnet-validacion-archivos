@@ -295,6 +295,8 @@ namespace SisnetData
                     {
                         while (npgsqlDataReader.Read())
                         {
+                            DbType type = npgsqlDataReader.GetFieldDbType(npgsqlDataReader.GetOrdinal("calidadpdf"));
+                            
                             ProcessInfo processInfo = new ProcessInfo()
                             {
                                 fldidvalidacionarchivos = npgsqlDataReader.GetInt32(0),
@@ -304,7 +306,8 @@ namespace SisnetData
                                 nombrearchivoarchivo = !npgsqlDataReader.IsDBNull(4) ? npgsqlDataReader.GetString(4) : "",
                                 etiqueta = !npgsqlDataReader.IsDBNull(5) ? npgsqlDataReader.GetString(5) : null,
                                 accion = !npgsqlDataReader.IsDBNull(6) ? npgsqlDataReader.GetString(6).ToUpper() : null,
-                                calidadpdf = !npgsqlDataReader.IsDBNull(7) ? npgsqlDataReader.GetDecimal(7) : 0M,
+                                calidadpdf = !npgsqlDataReader.IsDBNull(7) ?
+                                    (type == DbType.Int32 ? npgsqlDataReader.GetInt32(7) : npgsqlDataReader.GetDecimal(7)) : 0M,
                                 estado = npgsqlDataReader.GetString(8),
                                 etiqueta1 = !npgsqlDataReader.IsDBNull(9) ? npgsqlDataReader.GetString(9) : null,
                                 etiqueta2 = !npgsqlDataReader.IsDBNull(10) ? npgsqlDataReader.GetString(10) : null,
